@@ -1,0 +1,13 @@
+{
+  "framework": "vite",
+  "functions": {
+    "api/stripe-webhook.ts": { "maxDuration": 60 },
+    "api/retry-booking-emails.ts": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/retry-booking-emails", "schedule": "0 5 * * *" }
+  ],
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
