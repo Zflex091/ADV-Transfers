@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowRight,
   ArrowUpRight,
   BriefcaseBusiness,
   Check,
@@ -38,101 +39,79 @@ type VehicleCopy = {
   features: string[];
   capacity: string;
   shortCapacity: string;
-  signature: string;
-  marque: string;
 };
 
 const vehicleCopy: Record<Language, Record<VehicleId, VehicleCopy>> = {
   lt: {
     economy: {
-      description:
-        "Šiuolaikiškas, itin tvarkingas ir erdvus komfortiškas universalas.",
-      ideal:
-        "Idealus pasirinkimas 1–3 asmenų kelionėms, verslo išvykoms ar nedideliems šeimos transferams su standartiniu bagažu. Automobilis gali vežti iki 4 keleivių ir 4 standartinių lagaminų.",
+      description: "Patogus ir tvarkingas universalas kasdienėms kelionėms.",
+      ideal: "Tinka individualiems keleiviams, poroms ir nedidelėms šeimoms.",
       features: [
-        "Dviejų zonų klimato kontrolė (Air Conditioning / Climate Control)",
-        "Įkrovimo lizdai keleivių įrenginiams (USB / Type-C)",
-        "Tamsinti galiniai langai privatumui ir apsaugai nuo saulės",
+        "Dviejų zonų klimato kontrolė",
+        "USB / Type-C įkrovimas",
+        "Tamsinti galiniai langai",
       ],
       capacity: "Iki 4 keleivių ir 4 standartinių lagaminų",
-      shortCapacity: "4 keleiviai · 4 lagaminai",
-      signature: "ASTRA ST",
-      marque: "OPEL / BLACK EDITION 2025",
+      shortCapacity: "Iki 4 keleivių · 4 lagaminai",
     },
     "executive-minivan": {
-      description: "Premium lygio erdvė ir aukščiausios klasės komfortas.",
-      ideal:
-        "Idealus pasirinkimas šeimoms su daug bagažo, verslo delegacijoms, VIP transferams ar ilgoms tarptautinėms kelionėms.",
+      description: "Erdvus minivenas šeimoms, grupėms ir ilgesnėms kelionėms.",
+      ideal: "Daugiau vietos keleiviams ir bagažui, patogu oro uosto transferiams.",
       features: [
-        "Nappa odos salonas su individualiomis kapitono kėdėmis",
-        "Atskiras klimato valdymas galinėse sėdynėse (Tri-zone Climate Control)",
-        "Elektra valdomos šoninės durys – patogu įlipti su vaikais ar bagažu",
-        "Miego ir poilsio komfortas tolimose kelionėse",
+        "Nappa odos salonas",
+        "Trijų zonų klimato kontrolė",
+        "Elektra valdomos šoninės durys",
       ],
       capacity: "6 keleiviai ir 4 lagaminai arba 4 keleiviai ir 8 lagaminai",
-      shortCapacity: "6 + 4 arba 4 + 8",
-      signature: "PACIFICA",
-      marque: "CHRYSLER / 2024",
+      shortCapacity: "Iki 6 keleivių · daugiau bagažo",
     },
   },
   en: {
     economy: {
-      description: "A modern, impeccably maintained and spacious estate car.",
-      ideal:
-        "Ideal for 1–3 travellers, business journeys or small family transfers with standard luggage. It can carry up to 4 passengers and 4 standard suitcases.",
+      description: "A clean, comfortable estate for everyday private transfers.",
+      ideal: "A practical choice for solo travellers, couples and small families.",
       features: [
         "Dual-zone climate control",
-        "USB and Type-C charging ports for passenger devices",
-        "Tinted rear windows for privacy and sun protection",
+        "USB / Type-C charging",
+        "Tinted rear windows",
       ],
       capacity: "Up to 4 passengers and 4 standard suitcases",
-      shortCapacity: "4 passengers · 4 suitcases",
-      signature: "ASTRA ST",
-      marque: "OPEL / BLACK EDITION 2025",
+      shortCapacity: "Up to 4 passengers · 4 bags",
     },
     "executive-minivan": {
-      description: "Premium space and the highest level of comfort.",
-      ideal:
-        "Ideal for families with more luggage, business delegations, VIP transfers or long international journeys.",
+      description: "A spacious minivan for families, groups and longer journeys.",
+      ideal: "More room for passengers and luggage, ideal for airport transfers.",
       features: [
-        "Nappa leather interior with individual captain's chairs",
-        "Separate rear-seat climate control (Tri-zone Climate Control)",
-        "Power-operated sliding doors for easy boarding with children or luggage",
-        "Restful comfort on longer journeys",
+        "Nappa leather interior",
+        "Tri-zone climate control",
+        "Power sliding doors",
       ],
       capacity: "6 passengers and 4 suitcases, or 4 passengers and 8 suitcases",
-      shortCapacity: "6 + 4 or 4 + 8",
-      signature: "PACIFICA",
-      marque: "CHRYSLER / 2024",
+      shortCapacity: "Up to 6 passengers · extra luggage",
     },
   },
 };
 
 const uiCopy = {
   lt: {
-    heading: "Pasirinkite automobilį",
-    intro: "Kaina apskaičiuota pagal jūsų maršrutą. Pasirinkimą pritaikykite keleivių ir bagažo skaičiui.",
     passengers: "Keleiviai",
     luggage: "Lagaminai",
     decrease: "Sumažinti",
     increase: "Padidinti",
-    fleet: "Automobiliai",
     tripPrice: "Kelionės kaina",
-    fareUnavailable: "Kaina paaiškės apskaičiavus maršrutą",
+    fareUnavailable: "Kaina po maršruto skaičiavimo",
     select: "Pasirinkti",
     selected: "Pasirinkta",
     unavailable: "Netinka",
-    more: "Apie automobilį",
+    more: "Detalės",
     detailsTitle: "Automobilio informacija",
-    features: "Komfortas ir įranga",
+    features: "Komfortas",
     capacity: "Talpa",
     rate: "Kainodara",
-    boardingFee: "Įsėdimo mokestis",
-    minimumFare: "Minimali kelionės kaina (įskaitant įsėdimą)",
-    preview: "Automobilio peržiūra",
-    selectedShowcase: "Jūsų pasirinktas automobilis",
-    noVehicles: "Šiam keleivių ir bagažo deriniui neturime patvirtinto automobilio.",
-    contact: "Skambinti dėl individualaus sprendimo",
+    boardingFee: "Įsėdimas",
+    minimumFare: "Minimali kelionės kaina",
+    noVehicles: "Šiam keleivių ir bagažo kiekiui reikia individualaus sprendimo.",
+    contact: "Susisiekti",
     close: "Uždaryti automobilio informaciją",
     reasons: {
       available: "",
@@ -140,41 +119,36 @@ const uiCopy = {
       "invalid-luggage-count": "Patikrinkite lagaminų skaičių.",
       "passenger-limit": "Per daug keleivių šiam automobiliui.",
       "luggage-limit": "Per daug lagaminų šiam automobiliui.",
-      "unsupported-combination": "Šis keleivių ir lagaminų derinys nepatvirtintas.",
+      "unsupported-combination": "Šis keleivių ir lagaminų derinys netinka.",
     },
   },
   en: {
-    heading: "Choose your vehicle",
-    intro: "The price is based on your route. Match your choice to the number of passengers and suitcases.",
     passengers: "Passengers",
-    luggage: "Suitcases",
+    luggage: "Bags",
     decrease: "Decrease",
     increase: "Increase",
-    fleet: "Vehicles",
-    tripPrice: "Journey price",
-    fareUnavailable: "Price appears after route calculation",
-    select: "Select",
+    tripPrice: "Trip price",
+    fareUnavailable: "Price after route calculation",
+    select: "Select vehicle",
     selected: "Selected",
     unavailable: "Unavailable",
-    more: "Vehicle details",
-    detailsTitle: "Vehicle information",
-    features: "Comfort and equipment",
+    more: "Details",
+    detailsTitle: "Vehicle details",
+    features: "Comfort",
     capacity: "Capacity",
     rate: "Pricing",
     boardingFee: "Boarding fee",
-    minimumFare: "Minimum trip fare (boarding included)",
-    preview: "Vehicle preview",
-    selectedShowcase: "Your chosen vehicle",
-    noVehicles: "No vehicle has a confirmed capacity for this passenger and luggage combination.",
-    contact: "Call for a tailored option",
-    close: "Close vehicle information",
+    minimumFare: "Minimum trip fare",
+    noVehicles: "This party size needs a tailored vehicle option.",
+    contact: "Contact us",
+    close: "Close vehicle details",
     reasons: {
       available: "",
       "invalid-passenger-count": "Select at least one passenger.",
-      "invalid-luggage-count": "Check the number of suitcases.",
+      "invalid-luggage-count": "Check the number of bags.",
       "passenger-limit": "Too many passengers for this vehicle.",
-      "luggage-limit": "Too many suitcases for this vehicle.",
-      "unsupported-combination": "This passenger and suitcase combination has not been confirmed.",
+      "luggage-limit": "Too many bags for this vehicle.",
+      "unsupported-combination": "This passenger and bag combination is unavailable.",
     },
   },
 } satisfies Record<
@@ -186,24 +160,9 @@ const uiCopy = {
 >;
 
 const vehicleIds: VehicleId[] = ["economy", "executive-minivan"];
-const vehiclePhotos: Record<VehicleId, {
-  png: string;
-  webp: string;
-  width: number;
-  height: number;
-}> = {
-  economy: {
-    png: "/economy.png",
-    webp: "/economy.webp",
-    width: 1448,
-    height: 1086,
-  },
-  "executive-minivan": {
-    png: "/minivan.png",
-    webp: "/minivan.webp",
-    width: 1670,
-    height: 942,
-  },
+const vehiclePhotos: Record<VehicleId, { src: string; width: number; height: number }> = {
+  economy: { src: "/economy-cutout.png", width: 1409, height: 805 },
+  "executive-minivan": { src: "/minivan-cutout.png", width: 1569, height: 861 },
 };
 
 function money(cents: number, language: Language): string {
@@ -214,38 +173,26 @@ function money(cents: number, language: Language): string {
   }).format(cents / 100);
 }
 
-function VehiclePhoto({
-  vehicleId,
-  language,
-}: {
-  vehicleId: VehicleId;
-  language: Language;
-}) {
+function VehiclePhoto({ vehicleId }: { vehicleId: VehicleId }) {
   const [failed, setFailed] = useState(false);
-  const information = vehicleCopy[language][vehicleId];
   const vehicle = VEHICLES[vehicleId];
   const photo = vehiclePhotos[vehicleId];
 
   return (
-    <div className={"av-photo av-photo--" + vehicleId}>
+    <div className={`av-photo av-photo--${vehicleId}`}>
       {!failed ? (
-        <picture>
-          <source srcSet={photo.webp} type="image/webp" />
-          <img
-            src={photo.png}
-            alt={vehicle.model}
-            width={photo.width}
-            height={photo.height}
-            loading="lazy"
-            decoding="async"
-            onError={() => setFailed(true)}
-          />
-        </picture>
+        <img
+          src={photo.src}
+          alt={vehicle.model}
+          width={photo.width}
+          height={photo.height}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
       ) : (
-        <div className="av-photo-type" role="img" aria-label={vehicle.model}>
-          <span>{information.marque}</span>
-          <strong>{information.signature}</strong>
-          <small>{vehicle.className}</small>
+        <div className="av-photo-fallback" role="img" aria-label={vehicle.model}>
+          <strong>{vehicle.model}</strong>
         </div>
       )}
     </div>
@@ -282,7 +229,7 @@ function QuantityControl({
         <button
           type="button"
           disabled={value <= min}
-          aria-label={copy.decrease + " " + label.toLowerCase()}
+          aria-label={`${copy.decrease} ${label.toLowerCase()}`}
           onClick={() => onChange(value - 1)}
         >
           <Minus aria-hidden="true" />
@@ -291,7 +238,7 @@ function QuantityControl({
         <button
           type="button"
           disabled={value >= max}
-          aria-label={copy.increase + " " + label.toLowerCase()}
+          aria-label={`${copy.increase} ${label.toLowerCase()}`}
           onClick={() => onChange(value + 1)}
         >
           <Plus aria-hidden="true" />
@@ -317,15 +264,9 @@ export function VehicleSelector({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const detailOpenerRef = useRef<HTMLButtonElement | null>(null);
   const hasRoute = Number.isFinite(distanceMeters) && distanceMeters > 0;
-  const availableIds = vehicleIds.filter(
-    (id) => getVehicleCapacity(id, passengers, luggage).available,
+  const availableIds = vehicleIds.filter((id) =>
+    getVehicleCapacity(id, passengers, luggage).available,
   );
-  const selectedIsAvailable =
-    selectedVehicleId !== null &&
-    getVehicleCapacity(selectedVehicleId, passengers, luggage).available;
-  const featuredVehicleId = selectedIsAvailable
-    ? selectedVehicleId
-    : availableIds[0] ?? null;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -344,9 +285,7 @@ export function VehicleSelector({
   }
 
   const detailVehicle = detailVehicleId ? VEHICLES[detailVehicleId] : null;
-  const detailInformation = detailVehicleId
-    ? vehicleCopy[language][detailVehicleId]
-    : null;
+  const detailInformation = detailVehicleId ? vehicleCopy[language][detailVehicleId] : null;
   const detailCapacity = detailVehicleId
     ? getVehicleCapacity(detailVehicleId, passengers, luggage)
     : null;
@@ -356,8 +295,7 @@ export function VehicleSelector({
       : null;
 
   return (
-    <section className="vehicle-selector av-fleet" aria-label={copy.heading}>
-
+    <section className="vehicle-selector av-fleet">
       <div className="av-quantities">
         <QuantityControl
           id="vehicle-passengers-label"
@@ -381,142 +319,69 @@ export function VehicleSelector({
         />
       </div>
 
-      <div className="av-fleet-list-heading">
-        <span>{copy.fleet}</span>
-        <small>
-          {passengers} {copy.passengers.toLowerCase()} · {luggage}{" "}
-          {copy.luggage.toLowerCase()}
-        </small>
-      </div>
-
-      <div className="av-fleet-list" role="group" aria-label={copy.heading}>
+      <div className="av-card-grid" role="group" aria-label={language === "lt" ? "Automobiliai" : "Vehicles"}>
         {vehicleIds.map((id, index) => {
           const vehicle = VEHICLES[id];
           const information = vehicleCopy[language][id];
           const capacity = getVehicleCapacity(id, passengers, luggage);
           const isSelected = selectedVehicleId === id && capacity.available;
-          const price =
-            capacity.available && hasRoute
-              ? calculatePricing(id, distanceMeters).totalCents
-              : null;
+          const price = capacity.available && hasRoute
+            ? calculatePricing(id, distanceMeters).totalCents
+            : null;
 
           return (
             <article
-              className={
-                "av-vehicle-row" +
-                (isSelected ? " is-selected" : "") +
-                (!capacity.available ? " is-unavailable" : "")
-              }
+              className={`av-card${isSelected ? " is-selected" : ""}${!capacity.available ? " is-unavailable" : ""}`}
               key={id}
-              aria-label={vehicle.className + " — " + vehicle.model}
             >
-              <span className="av-vehicle-number" aria-hidden="true">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-              <div className="av-vehicle-info">
-                <span className="av-vehicle-class">
-                  {vehicle.className}
-                  {isSelected && (
-                    <span className="av-vehicle-chosen">
-                      <Check aria-hidden="true" /> {copy.selected}
-                    </span>
-                  )}
-                </span>
-                <h4>{vehicle.model}</h4>
-                <p>{information.shortCapacity}</p>
-                {!capacity.available && (
-                  <p className="av-vehicle-reason" role="status">
-                    {copy.reasons[capacity.reason]}
-                  </p>
-                )}
-                <button
-                  className="av-vehicle-details-link"
-                  type="button"
-                  onClick={(event) => openDetails(id, event.currentTarget)}
-                >
-                  {copy.more} <ArrowUpRight aria-hidden="true" />
-                </button>
+              <div className="av-card-topline">
+                <span>{String(index + 1).padStart(2, "0")} / {vehicle.className}</span>
+                {isSelected && <b><Check aria-hidden="true" /> {copy.selected}</b>}
               </div>
-              <div className="av-vehicle-side">
-                {price !== null ? (
-                  <div className="av-vehicle-price">
-                    <span>{copy.tripPrice}</span>
-                    <strong>{money(price, language)}</strong>
-                  </div>
-                ) : (
-                  <span className="av-vehicle-no-price">
-                    {capacity.available ? copy.fareUnavailable : copy.unavailable}
-                  </span>
+
+              <VehiclePhoto vehicleId={id} />
+
+              <div className="av-card-body">
+                <h3>{vehicle.model}</h3>
+                <p className="av-capacity-line">{information.shortCapacity}</p>
+                {!capacity.available && (
+                  <p className="av-vehicle-reason" role="status">{copy.reasons[capacity.reason]}</p>
                 )}
-                <button
-                  className="av-vehicle-select"
-                  type="button"
-                  aria-pressed={isSelected}
-                  disabled={!capacity.available || !hasRoute}
-                  onClick={() => onVehicleSelect(id)}
-                >
-                  {isSelected ? copy.selected : capacity.available ? copy.select : copy.unavailable}
-                  {isSelected && <Check aria-hidden="true" />}
-                </button>
+
+                <div className="av-card-price">
+                  <span>{copy.tripPrice}</span>
+                  <strong>{price !== null ? money(price, language) : "—"}</strong>
+                </div>
+
+                <div className="av-card-actions">
+                  <button
+                    className="av-vehicle-select"
+                    type="button"
+                    aria-pressed={isSelected}
+                    disabled={!capacity.available || !hasRoute}
+                    onClick={() => onVehicleSelect(id)}
+                  >
+                    {isSelected ? copy.selected : capacity.available ? copy.select : copy.unavailable}
+                    {isSelected ? <Check aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+                  </button>
+                  <button
+                    className="av-details-link"
+                    type="button"
+                    onClick={(event) => openDetails(id, event.currentTarget)}
+                  >
+                    {copy.more} <ArrowUpRight aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             </article>
           );
         })}
       </div>
 
-      {featuredVehicleId && (
-        <section
-          className="av-showcase"
-          aria-label={
-            selectedIsAvailable ? copy.selectedShowcase : copy.preview
-          }
-        >
-          <div className="av-showcase-media">
-            <span className="av-showcase-caption">
-              {selectedIsAvailable ? copy.selectedShowcase : copy.preview}
-            </span>
-            <VehiclePhoto
-              key={featuredVehicleId}
-              vehicleId={featuredVehicleId}
-              language={language}
-            />
-          </div>
-          <div className="av-showcase-body">
-            <span className="av-showcase-kicker">
-              {featuredVehicleId === "economy" ? "01" : "02"} /{" "}
-              {VEHICLES[featuredVehicleId].className}
-            </span>
-            <h4>{VEHICLES[featuredVehicleId].model}</h4>
-            <p className="av-showcase-description">
-              {vehicleCopy[language][featuredVehicleId].description}
-            </p>
-            <ul>
-              {vehicleCopy[language][featuredVehicleId].features
-                .slice(0, 3)
-                .map((feature) => (
-                  <li key={feature}>{feature}</li>
-                ))}
-            </ul>
-            <button
-              className="av-showcase-details-link"
-              type="button"
-              onClick={(event) =>
-                openDetails(featuredVehicleId, event.currentTarget)
-              }
-            >
-              {copy.more} <ArrowUpRight aria-hidden="true" />
-            </button>
-          </div>
-        </section>
-      )}
-
       {availableIds.length === 0 && (
         <div className="av-no-match" role="status">
           <p>{copy.noVehicles}</p>
-          <a href={contactHref}>
-            <Phone aria-hidden="true" />
-            {copy.contact}
-          </a>
+          <a href={contactHref}><Phone aria-hidden="true" />{copy.contact}</a>
         </div>
       )}
 
@@ -541,32 +406,20 @@ export function VehicleSelector({
               </button>
             </div>
             <div className="av-dialog-scroll">
-              <span className="av-dialog-kicker">
-                {detailVehicleId === "economy" ? "01" : "02"} /{" "}
-                {detailVehicle.className}
-              </span>
+              <span className="av-dialog-kicker">{detailVehicle.className}</span>
               <h2 id="av-dialog-title">{detailVehicle.model}</h2>
-              <VehiclePhoto
-                key={detailVehicleId}
-                vehicleId={detailVehicleId}
-                language={language}
-              />
+              <VehiclePhoto vehicleId={detailVehicleId} />
               <p className="av-dialog-lead">{detailInformation.description}</p>
               <p>{detailInformation.ideal}</p>
               <h3>{copy.features}</h3>
               <ul className="av-dialog-features">
-                {detailInformation.features.map((feature) => (
-                  <li key={feature}>{feature}</li>
-                ))}
+                {detailInformation.features.map((feature) => <li key={feature}>{feature}</li>)}
               </ul>
               <h3>{copy.capacity}</h3>
               <p>{detailInformation.capacity}</p>
               <h3>{copy.rate}</h3>
               <p>
-                {money(detailVehicle.rateCentsPerKm, language)} / km ·{" "}
-                {copy.boardingFee} {money(detailVehicle.boardingFeeCents, language)} ·{" "}
-                {copy.minimumFare}{" "}
-                {money(detailVehicle.minimumFareCents, language)}
+                {money(detailVehicle.rateCentsPerKm, language)} / km · {copy.boardingFee} {money(detailVehicle.boardingFeeCents, language)} · {copy.minimumFare} {money(detailVehicle.minimumFareCents, language)}
               </p>
               {!detailCapacity?.available && (
                 <p className="av-dialog-unavailable" role="status">
@@ -589,7 +442,7 @@ export function VehicleSelector({
                   : detailCapacity?.available
                     ? copy.select
                     : copy.unavailable}
-                <ArrowUpRight aria-hidden="true" />
+                <ArrowRight aria-hidden="true" />
               </button>
             </div>
           </div>

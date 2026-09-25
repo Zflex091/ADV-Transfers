@@ -24,7 +24,6 @@ import {
   Route,
   Mail,
   MessageCircle,
-  Send,
 } from "lucide-react";
 
 import PlaceField from "./components/PlaceField";
@@ -66,6 +65,10 @@ async function parseApiJson(response: Response, fallback: string) {
 function safeApiMessage(error: unknown, fallback: string) {
   if (error instanceof TypeError || error instanceof SyntaxError) return fallback;
   return error instanceof Error ? error.message : fallback;
+}
+
+function apiErrorText(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value : fallback;
 }
 
 // Keep the address form interactive while later-step UI downloads on demand.
@@ -160,7 +163,6 @@ const CONTACT_PHONE_LINK = "+37066215037";
 const CONTACT_EMAIL = "advserviceslt@gmail.com";
 const WHATSAPP_LINK =
   "https://wa.me/37066215037";
-const TELEGRAM_LINK = "https://t.me/Algis_G";
 const DRIVER_PHONE_LINK = CONTACT_PHONE_LINK;
 const DRIVER_PHONE = CONTACT_PHONE
 
@@ -173,10 +175,10 @@ const translations = {
     payment: "Apmokėjimas",
 
     eyebrow: "Privatūs pervežimai · Kaunas",
-    heroTitleFirst: "Iš Kauno oro uosto –",
-    heroTitleSecond: "tiesiai į vietą.",
+    heroTitleFirst: "Oro uosto pervežimai,",
+    heroTitleSecond: "be streso.",
     heroDescription:
-      "Privatūs pervežimai iš Kauno oro uosto ir visoje Lietuvoje. Matykite tikrą maršrutą, pasirinkite automobilį pagal keleivių ir bagažo skaičių ir sužinokite kainą prieš rezervuodami.",
+      "Privatūs pervežimai iš Kauno oro uosto visoje Lietuvoje.",
     bookJourney: "Rezervuoti kelionę",
     callNow: "Skambinti",
     howItWorks: "Kaip veikia",
@@ -189,7 +191,7 @@ const translations = {
 
     whereGoing: "Rezervuokite kelionę",
     routeDescription:
-      "Nurodykite tikslius adresus ir paėmimo laiką. Toliau matysite maršrutą, automobilius ir kainas.",
+      "Pasirinkite maršrutą ir paėmimo laiką.",
 
     pickup: "Iš kur",
     pickupPlaceholder: "Adresas, oro uostas ar vieta",
@@ -212,7 +214,7 @@ const translations = {
     routeError: "Maršruto apskaičiuoti nepavyko.",
 
     calculating: "Skaičiuojama...",
-    calculatePrice: "Rodyti maršrutą",
+    calculatePrice: "Ieškoti automobilių",
 
     changeRoute: "Keisti maršrutą",
     yourContacts: "Jūsų kontaktai",
@@ -285,10 +287,10 @@ const translations = {
     payment: "Payment",
 
     eyebrow: "Private transfers · Kaunas",
-    heroTitleFirst: "From Kaunas Airport –",
-    heroTitleSecond: "straight to your destination.",
+    heroTitleFirst: "Airport transfers,",
+    heroTitleSecond: "without the stress.",
     heroDescription:
-      "Private transfers from Kaunas Airport and across Lithuania. See the actual route, choose a vehicle that fits your passengers and luggage, and know the fare before you book.",
+      "Private rides from Kaunas Airport across Lithuania.",
     bookJourney: "Book your transfer",
     callNow: "Call us",
     howItWorks: "How it works",
@@ -299,9 +301,9 @@ const translations = {
     airportCityPrice:
       "Kaunas Airport → city centre / old town: €35–40",
 
-    whereGoing: "Book your transfer",
+    whereGoing: "Book transfer",
     routeDescription:
-      "Select the exact addresses and pickup time. Next, review the route, vehicles and fares.",
+      "Choose your route and pickup time.",
 
     pickup: "Pickup location",
     pickupPlaceholder: "Address, airport or place",
@@ -324,7 +326,7 @@ const translations = {
     routeError: "The route could not be calculated.",
 
     calculating: "Calculating...",
-    calculatePrice: "Show route",
+    calculatePrice: "Search vehicles",
 
     changeRoute: "Change route",
     yourContacts: "Your contact details",
@@ -576,7 +578,7 @@ export default function App() {
         "adv-language",
       );
 
-      return savedLanguage === "en" ? "en" : "lt";
+      return savedLanguage === "lt" ? "lt" : "en";
     });
 
   const [booking, setBooking] =
@@ -594,9 +596,6 @@ export default function App() {
     checkoutReturn ? { status: "pending" } : null,
   );
   const [statusRefresh, setStatusRefresh] = useState(0);
-  const [vehicleSummaryOpen, setVehicleSummaryOpen] = useState(
-    () => window.matchMedia("(min-width: 761px)").matches,
-  );
   const [clockMs, setClockMs] = useState(() => Date.now());
   const routeAbortControllerRef =
     useRef<AbortController | null>(null);
@@ -627,13 +626,6 @@ export default function App() {
   useEffect(() => {
     const timer = window.setInterval(() => setClockMs(Date.now()), 30_000);
     return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 761px)");
-    const matchViewport = () => setVehicleSummaryOpen(desktop.matches);
-    desktop.addEventListener("change", matchViewport);
-    return () => desktop.removeEventListener("change", matchViewport);
   }, []);
 
   useEffect(() => {
@@ -674,7 +666,7 @@ export default function App() {
         );
         const data: CheckoutStatus & { error?: string } = await parseApiJson(response, "Unable to verify payment status.");
         if (!response.ok || !["pending", "paid", "failed", "cancelled"].includes(data.status)) {
-          throw new Error(data.error || "Unable to verify payment status.");
+          throw new Error(apiErrorText(data.error, "Unable to verify payment status."));
         }
         if (stopped) return;
         if (data.status === "paid") {
@@ -732,7 +724,7 @@ export default function App() {
         const result = await parseApiJson(response, t.routeError);
 
         if (!response.ok) {
-          throw new Error(result.error || t.routeError);
+          throw new Error(apiErrorText(result.error, t.routeError));
         }
 
         const selected = result.vehicles?.find(
@@ -927,7 +919,7 @@ export default function App() {
       booking.distanceMeters > 0 &&
       Date.now() - routeCalculatedAtRef.current < 25 * 60 * 1000
     ) {
-      setStep(2);
+      setStep(3);
       return;
     }
 
@@ -981,7 +973,7 @@ export default function App() {
       }
 
       if (!response.ok) {
-        throw new Error(data.error || t.routeError);
+        throw new Error(apiErrorText(data.error, t.routeError));
       }
 
       if (
@@ -1017,7 +1009,7 @@ export default function App() {
 
       routeCalculatedAtRef.current = Date.now();
 
-      setStep(2);
+      setStep(3);
     } catch (caughtError) {
       if (
         caughtError instanceof DOMException &&
@@ -1119,7 +1111,7 @@ export default function App() {
         error?: string;
       } = await parseApiJson(response, t.stripeError);
       if (!response.ok || !data.url || !data.orderId || !data.statusToken) {
-        throw new Error(data.error || t.stripeError);
+        throw new Error(apiErrorText(data.error, t.stripeError));
       }
       if (!paymentPlan) throw new Error(t.stripeError);
       if (
@@ -1174,6 +1166,23 @@ export default function App() {
     updateRouteDependency(key, place);
   }
 
+  const flowSteps = language === "lt"
+    ? [
+        { value: 1, label: "Maršrutas" },
+        { value: 3, label: "Automobilis" },
+        { value: 4, label: "Pageidavimai" },
+        { value: 5, label: "Kontaktai" },
+        { value: 6, label: "Mokėjimas" },
+      ]
+    : [
+        { value: 1, label: "Route" },
+        { value: 3, label: "Vehicle" },
+        { value: 4, label: "Extras" },
+        { value: 5, label: "Details" },
+        { value: 6, label: "Payment" },
+      ];
+  const activeFlowIndex = Math.max(0, flowSteps.findIndex((item) => item.value === step));
+
   return (
     <div className="site-shell" data-booking-step={step} data-booking-done={Boolean(done)}>
       <header className="site-header">
@@ -1182,36 +1191,40 @@ export default function App() {
           <span className="brand-wordmark"><b>ADV</b><small>SERVICES</small></span>
         </a>
 
-        <nav className="header-nav" aria-label={language === "lt" ? "Pagrindinė navigacija" : "Main navigation"}>
-          {step === 1 && !done && <a href="#how-it-works">{t.howItWorks}</a>}
-          <a href="#contacts">{t.contactNav}</a>
-        </nav>
-
         <div className="header-actions">
           <div className="language-switcher" aria-label={language === "lt" ? "Kalba" : "Language"}>
-            <button type="button" className={language === "lt" ? "active" : ""} onClick={() => setLanguage("lt")}>LT</button>
-            <span aria-hidden="true" />
             <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button>
+            <span aria-hidden="true" />
+            <button type="button" className={language === "lt" ? "active" : ""} onClick={() => setLanguage("lt")}>LT</button>
           </div>
           <a className="phone" href={`tel:${CONTACT_PHONE_LINK}`} aria-label={`${t.callNow}: ${CONTACT_PHONE}`}>
             <Phone aria-hidden="true" />
             <span>{CONTACT_PHONE}</span>
           </a>
-          <a className="header-book-link" href="#booking">{t.bookJourney}<ArrowRight aria-hidden="true" /></a>
         </div>
       </header>
 
       <main id="top" className={step === 1 && !done ? "landing-main" : "booking-main"}>
         {step === 1 && !done && (
           <section className="hero-copy">
-            <div className="eyebrow">{t.eyebrow}</div>
+            <div className="eyebrow">{language === "lt" ? "Privatūs oro uosto pervežimai" : "Private airport transfers"}</div>
             <h1>{t.heroTitleFirst}<br /><em>{t.heroTitleSecond}</em></h1>
             <p>{t.heroDescription}</p>
-            <div className="hero-actions">
-              <a className="hero-book-link" href="#booking">{t.bookJourney}<ArrowRight aria-hidden="true" /></a>
-              <a className="hero-call-link" href={`tel:${CONTACT_PHONE_LINK}`}><Phone aria-hidden="true" />{t.callNow}: {CONTACT_PHONE}</a>
+
+            <div className="hero-trust" aria-label={language === "lt" ? "Paslaugos privalumai" : "Service benefits"}>
+              <span><Clock3 aria-hidden="true" />24/7</span>
+              <span><LockKeyhole aria-hidden="true" />{language === "lt" ? "Fiksuota kaina" : "Fixed price"}</span>
+              <span><CarFront aria-hidden="true" />{language === "lt" ? "Privati kelionė" : "Private ride"}</span>
             </div>
-            <p className="city-price"><small>{t.estimatedPrice}</small><b>{t.airportCityPrice}</b></p>
+
+            <div className="hero-payment-note">
+              <span><CreditCard aria-hidden="true" />{language === "lt" ? "Stripe internetu" : "Stripe online"}</span>
+              <span><Banknote aria-hidden="true" />{language === "lt" ? "Mokėjimas automobilyje" : "Pay in car"}</span>
+            </div>
+
+            <div className="hero-car" aria-hidden="true">
+              <img src="/economy-cutout.png" alt="" />
+            </div>
           </section>
         )}
 
@@ -1224,25 +1237,18 @@ export default function App() {
           transition={{ duration: 0.55 }}
         >
           {step > 1 && !done && <div className="steps" aria-label={language === "lt" ? "Rezervacijos eiga" : "Reservation progress"}>
-            {[1, 2, 3, 4, 5, 6].map((number) => {
-              const stepLabel = (language === "lt"
-                ? ["Adresai", "Maršrutas", "Automobilis", "Pageidavimai", "Kontaktai", "Mokėjimas"]
-                : ["Addresses", "Route", "Vehicle", "Preferences", "Contacts", "Payment"])[number - 1];
-
+            {flowSteps.map((item, index) => {
+              const complete = activeFlowIndex > index;
+              const active = activeFlowIndex >= index;
               return (
                 <div
-                  key={number}
-                  aria-label={`${number}. ${stepLabel}`}
-                  aria-current={step === number ? "step" : undefined}
-                  className={
-                    step >= number ? "active" : ""
-                  }
+                  key={item.value}
+                  aria-label={`${index + 1}. ${item.label}`}
+                  aria-current={step === item.value ? "step" : undefined}
+                  className={active ? "active" : ""}
                 >
-                  <span>
-                    {step > number ? <Check /> : number}
-                  </span>
-
-                  <small>{stepLabel}</small>
+                  <span>{complete ? <Check /> : index + 1}</span>
+                  <small>{item.label}</small>
                 </div>
               );
             })}
@@ -1432,100 +1438,6 @@ export default function App() {
                   )}
                 </button>
               </motion.div>
-            ) : step === 2 ? (
-              <motion.div
-                key="step-2"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-              >
-                <button
-                  className="back"
-                  type="button"
-                  onClick={() => {
-                    setError("");
-                    setStep(1);
-                  }}
-                >
-                  <ChevronLeft />
-                  {t.changeRoute}
-                </button>
-
-                <div className="card-heading">
-                  <span>02</span>
-
-                  <div>
-                    <h2>{language === "lt" ? "Jūsų maršrutas" : "Your route"}</h2>
-                    <p>{language === "lt" ? "Patikrinkite adresus, paėmimo laiką ir važiavimo kelią." : "Review the addresses, pickup time and driving route."}</p>
-                  </div>
-                </div>
-
-                <DeferredRouteMap
-                  encodedPolyline={booking.routePolyline}
-                  language={language}
-                  ariaLabel={`${booking.pickup?.label ?? ""} – ${
-                    booking.destination?.label ?? ""
-                  }`}
-                />
-
-                <div className="route-itinerary">
-                  <div>
-                    <small>{t.pickup}</small>
-                    <strong>{booking.pickup?.label}</strong>
-                  </div>
-                  <div>
-                    <small>{t.destination}</small>
-                    <strong>{booking.destination?.label}</strong>
-                  </div>
-                  <div>
-                    <small>{t.pickupTimeLabel}</small>
-                    <strong>{booking.date} · {booking.time} (Europe/Vilnius)</strong>
-                  </div>
-                </div>
-
-                <div className="trip-summary">
-                  <div>
-                    <Route />
-
-                    <span>
-                      <small>{t.distance}</small>
-                      <b>
-                        {booking.distanceKm.toFixed(1)} km
-                      </b>
-                    </span>
-                  </div>
-
-                  <div>
-                    <Clock3 />
-
-                    <span>
-                      <small>{t.duration}</small>
-                      <b>
-                        ~{booking.durationMin}{" "}
-                        {t.minutes}
-                      </b>
-                    </span>
-                  </div>
-
-                  <strong
-                    aria-live="polite"
-                    className={!booking.pricing ? "awaiting-vehicle" : undefined}
-                  >
-                    {booking.pricing
-                      ? `${booking.price.toFixed(2)} €`
-                      : language === "lt"
-                        ? "Pasirinkite automobilį"
-                        : "Choose a vehicle"}
-                  </strong>
-                </div>
-
-                {error && <div className="error" role="alert">{error}</div>}
-
-                <button className="primary" type="button" onClick={() => continueTo(3)}>
-                  {language === "lt" ? "Rinktis automobilį" : "Choose a vehicle"}
-                  <ArrowRight />
-                </button>
-              </motion.div>
             ) : step === 3 ? (
               <motion.div
                 key="step-3"
@@ -1533,15 +1445,15 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
               >
-                <button className="back" type="button" onClick={() => { setError(""); setStep(2); }}>
-                  <ChevronLeft />{t.back}
+                <button className="back" type="button" onClick={() => { setError(""); setStep(1); }}>
+                  <ChevronLeft />{language === "lt" ? "Keisti maršrutą" : "Edit route"}
                 </button>
 
                 <div className="card-heading">
-                  <span>03</span>
+                  <span>02</span>
                   <div>
-                    <h2>{language === "lt" ? "Pasirinkite automobilį" : "Choose a vehicle"}</h2>
-                    <p>{language === "lt" ? "Nurodykite keleivius ir bagažą, tada pasirinkite tinkamą automobilį." : "Set passenger and luggage counts, then choose an available vehicle."}</p>
+                    <h2>{language === "lt" ? "Pasirinkite automobilį" : "Choose your vehicle"}</h2>
+                    <p>{language === "lt" ? "Pasirinkite keleivių ir bagažo kiekį." : "Set passengers and bags, then pick a vehicle."}</p>
                   </div>
                 </div>
 
@@ -1550,7 +1462,7 @@ export default function App() {
                   <span className="route-arrow" aria-hidden="true">→</span>
                   <div><small>{t.destination}</small><strong>{booking.destination?.label}</strong></div>
                   <time dateTime={`${booking.date}T${booking.time}`}>
-                    {booking.date}<b>{booking.time} · {booking.distanceKm.toFixed(1)} km · ~{booking.durationMin} {t.minutes}</b>
+                    {booking.date}<b>{booking.time} · {booking.distanceKm.toFixed(1)} km</b>
                   </time>
                 </div>
 
@@ -1571,11 +1483,10 @@ export default function App() {
                     {quoteLoading && (
                       <div className="quote-status" role="status">
                         <LoaderCircle className="spin" aria-hidden="true" />
-                        {language === "lt" ? "Tikrinama pasirinkto automobilio kaina..." : "Confirming the selected vehicle fare..."}
+                        {language === "lt" ? "Tikrinama kaina..." : "Confirming fare..."}
                       </div>
                     )}
                     {quoteError && <div className="error" role="alert">{quoteError}</div>}
-                    {booking.pricing && <div className="selected-fare" aria-live="polite"><span>{t.finalTripPrice}</span><strong>{booking.price.toFixed(2)} €</strong></div>}
                     {error && <div className="error" role="alert">{error}</div>}
 
                     <button
@@ -1584,51 +1495,35 @@ export default function App() {
                       onClick={() => continueTo(4)}
                       disabled={!booking.vehicleId || !booking.pricing || quoteLoading}
                     >
-                      {language === "lt" ? "Tęsti" : "Continue"}<ArrowRight />
+                      {quoteLoading ? (
+                        <><LoaderCircle className="spin" />{language === "lt" ? "Tikrinama..." : "Confirming..."}</>
+                      ) : (
+                        <>{language === "lt" ? "Tęsti" : "Continue"}<ArrowRight /></>
+                      )}
                     </button>
                   </div>
 
                   <aside className="vehicle-route-panel">
-                    <details
-                      className="vehicle-route-details"
-                      open={vehicleSummaryOpen}
-                      onToggle={(event) => setVehicleSummaryOpen(event.currentTarget.open)}
-                    >
-                      <summary>
-                        <span>{language === "lt" ? "Kelionės suvestinė" : "Trip summary"}</span>
-                        <strong>{booking.pickup?.label} → {booking.destination?.label}</strong>
-                        <b aria-live="polite">
-                          {booking.pricing
-                            ? `${booking.price.toFixed(2)} €`
-                            : quoteLoading
-                              ? (language === "lt" ? "Tikrinama kaina" : "Checking fare")
-                              : (language === "lt" ? "Pasirinkite automobilį" : "Choose a vehicle")}
-                        </b>
-                      </summary>
-                      <div className="vehicle-route-summary">
-                        {vehicleSummaryOpen && (
-                          <DeferredRouteMap
-                            encodedPolyline={booking.routePolyline}
-                            language={language}
-                            ariaLabel={`${booking.pickup?.label ?? ""} – ${booking.destination?.label ?? ""}`}
-                          />
-                        )}
-                        <dl>
-                          <div><dt>{t.pickup}</dt><dd>{booking.pickup?.label}</dd></div>
-                          <div><dt>{t.destination}</dt><dd>{booking.destination?.label}</dd></div>
-                          <div><dt>{t.pickupTimeLabel}</dt><dd>{booking.date} · {booking.time} (Europe/Vilnius)</dd></div>
-                          <div><dt>{t.distance} / {t.duration}</dt><dd>{booking.distanceKm.toFixed(1)} km · ~{booking.durationMin} {t.minutes}</dd></div>
-                          <div><dt>{t.passengers} / {t.luggage}</dt><dd>{booking.passengers} / {booking.luggage}</dd></div>
-                          <div><dt>{t.vehicle}</dt><dd>{booking.vehicleId ? `${VEHICLES[booking.vehicleId].className} · ${VEHICLES[booking.vehicleId].model}` : "—"}</dd></div>
-                          {selectedPreferenceRows.length > 0
-                            ? selectedPreferenceRows.map((item) => <div key={item.label}><dt>{item.label}</dt><dd className="preference-summary-value">{item.value}</dd></div>)
-                            : <div><dt>{language === "lt" ? "Pageidavimai" : "Preferences"}</dt><dd>{language === "lt" ? "Nėra" : "None"}</dd></div>}
-                          <div><dt>{language === "lt" ? "Bazinė kaina" : "Base fare"}</dt><dd>{booking.pricing ? `${(booking.pricing.baseFareCents / 100).toFixed(2)} €` : "—"}</dd></div>
-                        </dl>
-                        <div className="vehicle-route-total"><span>{t.finalTripPrice}</span><strong>{booking.pricing ? `${booking.price.toFixed(2)} €` : "—"}</strong></div>
-                        <a className="vehicle-route-call" href={`tel:${CONTACT_PHONE_LINK}`}><Phone aria-hidden="true" />{t.callNow}: {CONTACT_PHONE}</a>
+                    <div className="vehicle-route-summary">
+                      <DeferredRouteMap
+                        encodedPolyline={booking.routePolyline}
+                        language={language}
+                        ariaLabel={`${booking.pickup?.label ?? ""} – ${booking.destination?.label ?? ""}`}
+                      />
+                      <div className="vehicle-summary-route">
+                        <span>{booking.pickup?.label}</span>
+                        <ArrowRight aria-hidden="true" />
+                        <span>{booking.destination?.label}</span>
                       </div>
-                    </details>
+                      <div className="vehicle-summary-meta">
+                        <span><Route aria-hidden="true" /><b>{booking.distanceKm.toFixed(1)} km</b></span>
+                        <span><Clock3 aria-hidden="true" /><b>~{booking.durationMin} {t.minutes}</b></span>
+                      </div>
+                      <div className="vehicle-route-total">
+                        <span>{booking.vehicleId ? VEHICLES[booking.vehicleId].model : (language === "lt" ? "Pasirinkite automobilį" : "Select a vehicle")}</span>
+                        <strong>{booking.pricing ? `${booking.price.toFixed(2)} €` : "—"}</strong>
+                      </div>
+                    </div>
                   </aside>
                 </div>
               </motion.div>
@@ -1644,7 +1539,7 @@ export default function App() {
                 </button>
 
                 <div className="card-heading">
-                  <span>04</span>
+                  <span>03</span>
                   <div>
                     <h2>{language === "lt" ? "Papildomi pageidavimai" : "Additional preferences"}</h2>
                     <p>{language === "lt" ? "Pasirinkite tai, kas padės keliauti patogiau. Visi pageidavimai nemokami." : "Choose what will make your journey more comfortable. All preferences are free."}</p>
@@ -1657,7 +1552,7 @@ export default function App() {
                       <span className="preference-index" aria-hidden="true">01</span>
                       <div className="preference-copy">
                         <label htmlFor="pref-spotify">{language === "lt" ? "Mano Spotify muzika" : "Play my Spotify music"}</label>
-                        <p id="pref-spotify-description">{language === "lt" ? "Galite nurodyti mėgstamą muziką; automatinio Spotify prijungimo nėra." : "Tell the driver what you like; Spotify is not connected automatically."}</p>
+                        <p id="pref-spotify-description">{language === "lt" ? "Muzikos pageidavimas kelionei." : "Optional music request."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
                       <input id="pref-spotify" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-spotify-description" checked={booking.preferences.spotify.enabled} onChange={(event) => updatePreference("spotify", { enabled: event.target.checked })} />
@@ -1675,7 +1570,7 @@ export default function App() {
                       <span className="preference-index" aria-hidden="true">02</span>
                       <div className="preference-copy">
                         <label htmlFor="pref-language">{language === "lt" ? "Pageidaujama vairuotojo kalba" : "Preferred driver language"}</label>
-                        <p id="pref-language-description">{language === "lt" ? "Teiksime pirmenybę šia kalba kalbančiam vairuotojui; tai nėra garantija." : "We will prioritise a driver who speaks this language; availability is not guaranteed."}</p>
+                        <p id="pref-language-description">{language === "lt" ? "Pageidaujama vairuotojo kalba." : "Request a preferred driver language."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
                       <input id="pref-language" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-language-description" checked={booking.preferences.preferredLanguage.enabled} onChange={(event) => updatePreference("preferredLanguage", { enabled: event.target.checked })} />
@@ -1706,7 +1601,7 @@ export default function App() {
                       <span className="preference-index" aria-hidden="true">03</span>
                       <div className="preference-copy">
                         <label htmlFor="pref-meet">{language === "lt" ? "Pasitikimas su lentele" : "Meet me with a sign"}</label>
-                        <p id="pref-meet-description">{language === "lt" ? "Vairuotojas pasitiks su jūsų nurodytu vardu arba įmonės pavadinimu." : "The driver will meet you with your name or company on a sign."}</p>
+                        <p id="pref-meet-description">{language === "lt" ? "Pasitikimas oro uoste su lentele." : "Name sign at arrivals."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
                       <input id="pref-meet" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-meet-description" checked={booking.preferences.meetAndGreet.enabled} onChange={(event) => updatePreference("meetAndGreet", { enabled: event.target.checked })} />
@@ -1724,7 +1619,7 @@ export default function App() {
                       <span className="preference-index" aria-hidden="true">04</span>
                       <div className="preference-copy">
                         <label htmlFor="pref-comment">{language === "lt" ? "Komentaras vairuotojui" : "Comment for the driver"}</label>
-                        <p id="pref-comment-description">{language === "lt" ? "Paėmimo detalės ar kiti jūsų pageidavimai." : "Pickup details or anything else the driver should know."}</p>
+                        <p id="pref-comment-description">{language === "lt" ? "Trumpa žinutė vairuotojui." : "Anything the driver should know."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
                       <input id="pref-comment" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-comment-description" checked={booking.preferences.driverComment.enabled} onChange={(event) => updatePreference("driverComment", { enabled: event.target.checked })} />
@@ -1739,7 +1634,7 @@ export default function App() {
                   </section>
                 </div>
 
-                <p className="preference-note">{language === "lt" ? "Pageidavimai nekeičia kelionės kainos. Jei reikia kitokios pagalbos, paskambinkite mums." : "These preferences do not change your fare. For other requests, please call us."} <a href={`tel:${CONTACT_PHONE_LINK}`}>{CONTACT_PHONE}</a></p>
+                <p className="preference-note">{language === "lt" ? "Visi pageidavimai nemokami." : "All extras are free."}</p>
 
                 {error && <div className="error" role="alert">{error}</div>}
                 <button className="primary" type="button" onClick={() => continueTo(5)}>
@@ -1758,7 +1653,7 @@ export default function App() {
                 </button>
 
                 <div className="card-heading">
-                  <span>05</span>
+                  <span>04</span>
                   <div>
                     <h2>{language === "lt" ? "Kontaktai ir suvestinė" : "Contact and trip summary"}</h2>
                     <p>{t.contactDescription}</p>
@@ -1836,7 +1731,7 @@ export default function App() {
                 </button>
 
                 <div className="card-heading">
-                  <span>06</span>
+                  <span>05</span>
 
                   <div>
                     <h2>{t.howPay}</h2>
@@ -1965,58 +1860,34 @@ export default function App() {
         </div>
       </main>
 
-      {step === 1 && !done && (
-        <section id="how-it-works" className="service-strip">
-          <div><small>{t.howItWorks}</small><strong>{t.serviceLine}</strong></div>
-          <a href="#booking">{t.bookJourney}<ArrowRight aria-hidden="true" /></a>
-        </section>
-      )}
-
       <footer id="contacts" className="site-footer">
-  <div className="footer-brand">
-    <b>ADV Services</b>
-    <span>{language === "lt" ? "Privatūs pervežimai · Kaunas" : "Private transfers · Kaunas"}</span>
-  </div>
+        <div className="footer-brand">
+          <div className="footer-logo-row">
+            <img src="/adv-logo.svg" alt="" />
+            <div><b>ADV Services</b><span>{language === "lt" ? "Privatūs oro uosto pervežimai" : "Private airport transfers"}</span></div>
+          </div>
+        </div>
 
-  <div className="footer-contacts" aria-label={language === "lt" ? "Susisiekite su mumis" : "Contact us"}>
-    <a className="footer-contact" href={`tel:${CONTACT_PHONE_LINK}`} aria-label={`${t.callNow}: ${CONTACT_PHONE}`}>
-      <span className="footer-contact-icon"><Phone aria-hidden="true" /></span>
-      <span className="footer-contact-copy"><small>{language === "lt" ? "Skambinkite" : "Call us"}</small><strong>{CONTACT_PHONE}</strong></span>
-    </a>
+        <div className="footer-contacts" aria-label={language === "lt" ? "Susisiekite su mumis" : "Contact us"}>
+          <a className="footer-contact" href={`tel:${CONTACT_PHONE_LINK}`}>
+            <span className="footer-contact-icon"><Phone aria-hidden="true" /></span>
+            <span className="footer-contact-copy"><small>{language === "lt" ? "Telefonas" : "Phone"}</small><strong>{CONTACT_PHONE}</strong></span>
+          </a>
+          <a className="footer-contact" href={`mailto:${CONTACT_EMAIL}`}>
+            <span className="footer-contact-icon"><Mail aria-hidden="true" /></span>
+            <span className="footer-contact-copy"><small>Email</small><strong>{CONTACT_EMAIL}</strong></span>
+          </a>
+          <a className="footer-contact" href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+            <span className="footer-contact-icon"><MessageCircle aria-hidden="true" /></span>
+            <span className="footer-contact-copy"><small>WhatsApp</small><strong>{language === "lt" ? "Rašyti žinutę" : "Message us"}</strong></span>
+          </a>
+        </div>
 
-    <a className="footer-contact" href={`mailto:${CONTACT_EMAIL}`} aria-label={`${language === "lt" ? "El. paštas" : "Email"}: ${CONTACT_EMAIL}`}>
-      <span className="footer-contact-icon"><Mail aria-hidden="true" /></span>
-      <span className="footer-contact-copy"><small>{language === "lt" ? "Rašykite" : "Email us"}</small><strong>{CONTACT_EMAIL}</strong></span>
-    </a>
-
-    <a
-      className="footer-contact"
-      href={WHATSAPP_LINK}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`WhatsApp: ${CONTACT_PHONE}`}
-    >
-      <span className="footer-contact-icon"><MessageCircle aria-hidden="true" /></span>
-      <span className="footer-contact-copy"><small>{language === "lt" ? "Žinutės" : "Messages"}</small><strong>WhatsApp</strong></span>
-    </a>
-
-    <a
-      className="footer-contact"
-      href={TELEGRAM_LINK}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Telegram: @Algis_G"
-    >
-      <span className="footer-contact-icon"><Send aria-hidden="true" /></span>
-      <span className="footer-contact-copy"><small>{language === "lt" ? "Žinutės" : "Messages"}</small><strong>Telegram</strong></span>
-    </a>
-  </div>
-
-  <div className="footer-bottom">
-    <span>© 2026 ADV Services</span>
-    <span>{language === "lt" ? "Tikras maršrutas. Tinkamas automobilis. Aiški kaina." : "Actual route. The right vehicle. A clear fare."}</span>
-  </div>
-</footer>
+        <div className="footer-bottom">
+          <span>© 2026 ADV Services</span>
+          <span>{language === "lt" ? "Stripe internetu · mokėjimas automobilyje" : "Stripe online · pay in car"}</span>
+        </div>
+      </footer>
     </div>
 
   );
