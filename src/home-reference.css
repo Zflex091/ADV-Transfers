@@ -355,3 +355,206 @@
   .site-shell[data-booking-step="1"] .hero-copy h1{font-size:clamp(35px,11.2vw,44px) !important}
   .site-shell[data-booking-step="1"] .hero-trust span:nth-child(3){display:none !important}
 }
+
+
+/* ============================================================
+   FINAL POLISH — symmetry / alignment pass requested 2026-09-25
+   ============================================================ */
+
+/* One continuous glass header: logo left, controls right, subtle divider. */
+.site-shell[data-booking-step="1"] .site-header{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:24px !important;
+  min-height:88px !important;
+  padding-top:12px !important;
+  padding-bottom:12px !important;
+  background:rgba(246,248,242,.46) !important;
+  border-bottom:1px solid rgba(23,56,43,.18) !important;
+  box-shadow:0 1px 0 rgba(255,255,255,.34) inset !important;
+  backdrop-filter:blur(16px) saturate(120%) !important;
+  -webkit-backdrop-filter:blur(16px) saturate(120%) !important;
+}
+.site-shell[data-booking-step="1"] .site-header::after{
+  content:"";
+  position:absolute;
+  left:max(34px,calc((100vw - 1450px)/2 + 28px));
+  right:max(34px,calc((100vw - 1450px)/2 + 28px));
+  bottom:-1px;
+  height:1px;
+  background:linear-gradient(90deg,rgba(23,56,43,.28),rgba(23,56,43,.10),rgba(23,56,43,.28));
+  pointer-events:none;
+}
+.site-shell[data-booking-step="1"] .brand{
+  flex:0 0 auto !important;
+  display:inline-flex !important;
+  align-items:center !important;
+}
+.site-shell[data-booking-step="1"] .header-actions{
+  flex:0 0 auto !important;
+  margin-left:auto !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+}
+
+/* Give the two headline lines actual breathing room. */
+.site-shell[data-booking-step="1"] .hero-copy h1{
+  line-height:.99 !important;
+}
+.site-shell[data-booking-step="1"] .hero-copy h1 em{
+  display:inline-block !important;
+  margin-top:10px !important;
+}
+
+/* Payment options belong to the hero, but stay visually quiet. */
+.site-shell[data-booking-step="1"] .hero-payment-note{
+  margin-top:15px !important;
+  display:flex !important;
+  align-items:center !important;
+  flex-wrap:wrap !important;
+  gap:10px !important;
+  color:#28463a !important;
+}
+.site-shell[data-booking-step="1"] .hero-payment-note span{
+  min-height:34px !important;
+  padding:7px 11px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:7px !important;
+  border:1px solid rgba(23,56,43,.10) !important;
+  border-radius:999px !important;
+  background:rgba(241,248,216,.72) !important;
+  font-size:10px !important;
+  font-weight:800 !important;
+  backdrop-filter:blur(5px) !important;
+}
+.site-shell[data-booking-step="1"] .hero-payment-note svg{
+  width:15px !important;
+  height:15px !important;
+  color:#17382b !important;
+}
+/* Keep only the old decorative car hidden. */
+.site-shell[data-booking-step="1"] .hero-car{display:none !important;}
+
+/* Form control geometry: all leading icons are mathematically centered. */
+.site-shell[data-booking-step="1"] .input-icon{
+  position:relative !important;
+  display:flex !important;
+  align-items:center !important;
+}
+.site-shell[data-booking-step="1"] .input-icon>svg{
+  position:absolute !important;
+  z-index:4 !important;
+  left:16px !important;
+  top:50% !important;
+  width:20px !important;
+  height:20px !important;
+  margin:0 !important;
+  transform:translateY(-50%) !important;
+  color:#466b58 !important;
+  pointer-events:none !important;
+}
+.site-shell[data-booking-step="1"] .input-icon input,
+.site-shell[data-booking-step="1"] .place-input-shell input{
+  padding-left:49px !important;
+  padding-right:42px !important;
+}
+.site-shell[data-booking-step="1"] input[type="date"],
+.site-shell[data-booking-step="1"] input[type="time"]{
+  min-height:57px !important;
+  font-size:15px !important;
+  font-weight:750 !important;
+  letter-spacing:.01em !important;
+  color:#17251f !important;
+}
+.site-shell[data-booking-step="1"] input[type="date"]::-webkit-calendar-picker-indicator,
+.site-shell[data-booking-step="1"] input[type="time"]::-webkit-calendar-picker-indicator{
+  width:18px !important;
+  height:18px !important;
+  margin:0 !important;
+  opacity:.72 !important;
+  cursor:pointer !important;
+}
+.site-shell[data-booking-step="1"] .place-input-actions{
+  top:50% !important;
+  transform:translateY(-50%) !important;
+}
+
+/* Stronger CTA, larger label + arrow, while preserving the same proportions. */
+.site-shell[data-booking-step="1"] .primary{
+  min-height:62px !important;
+  gap:12px !important;
+  font-size:15px !important;
+  letter-spacing:.01em !important;
+}
+.site-shell[data-booking-step="1"] .primary svg{
+  width:21px !important;
+  height:21px !important;
+  stroke-width:2.2 !important;
+}
+
+/* Footer legal row: readable, balanced and separated. */
+.site-shell[data-booking-step="1"] .footer-bottom{
+  gap:18px !important;
+  font-size:10px !important;
+  line-height:1.35 !important;
+  color:#68776f !important;
+}
+.site-shell[data-booking-step="1"] .footer-bottom>span:first-child{
+  font-size:10px !important;
+  white-space:nowrap !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal{
+  display:flex !important;
+  align-items:center !important;
+  gap:0 !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a{
+  padding:0 10px !important;
+  color:#5c6c63 !important;
+  font-size:10px !important;
+  font-weight:650 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a+a{
+  border-left:1px solid rgba(23,56,43,.16) !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a:hover{text-decoration:underline !important;}
+
+@media(max-width:720px){
+  .site-shell[data-booking-step="1"] .site-header{
+    min-height:72px !important;
+    padding:9px 12px !important;
+    gap:10px !important;
+    background:rgba(247,248,243,.58) !important;
+    backdrop-filter:blur(14px) saturate(120%) !important;
+    -webkit-backdrop-filter:blur(14px) saturate(120%) !important;
+  }
+  .site-shell[data-booking-step="1"] .site-header::after{left:12px;right:12px;}
+  .site-shell[data-booking-step="1"] .hero-copy h1 em{margin-top:7px !important;}
+  .site-shell[data-booking-step="1"] .hero-payment-note{margin-top:12px !important;gap:7px !important;}
+  .site-shell[data-booking-step="1"] .hero-payment-note span{min-height:30px !important;padding:6px 9px !important;font-size:9px !important;}
+  .site-shell[data-booking-step="1"] .input-icon>svg{left:14px !important;width:18px !important;height:18px !important;}
+  .site-shell[data-booking-step="1"] .input-icon input,
+  .site-shell[data-booking-step="1"] .place-input-shell input{padding-left:43px !important;padding-right:38px !important;}
+  .site-shell[data-booking-step="1"] input[type="date"],
+  .site-shell[data-booking-step="1"] input[type="time"]{min-height:53px !important;font-size:13px !important;font-weight:750 !important;}
+  .site-shell[data-booking-step="1"] .primary{min-height:56px !important;font-size:13px !important;}
+  .site-shell[data-booking-step="1"] .primary svg{width:19px !important;height:19px !important;}
+
+  /* Keep copyright/legal visible on phones instead of silently removing it. */
+  .site-shell[data-booking-step="1"] .footer-bottom{
+    grid-column:1 !important;
+    display:flex !important;
+    flex-wrap:wrap !important;
+    justify-content:flex-start !important;
+    gap:7px 12px !important;
+    margin-top:5px !important;
+    font-size:8px !important;
+  }
+  .site-shell[data-booking-step="1"] .footer-bottom>span:first-child{font-size:8px !important;white-space:normal !important;}
+  .site-shell[data-booking-step="1"] .footer-legal a{padding:0 7px !important;font-size:8px !important;}
+}

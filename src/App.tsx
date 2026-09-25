@@ -1219,6 +1219,10 @@ export default function App() {
               <span><CarFront aria-hidden="true" />{language === "lt" ? "Profesionalūs vairuotojai" : "Professional drivers"}</span>
             </div>
 
+            <div className="hero-payment-note" aria-label={language === "lt" ? "Atsiskaitymo būdai" : "Payment options"}>
+              <span><CreditCard aria-hidden="true" />{language === "lt" ? "Stripe internetu" : "Stripe online"}</span>
+              <span><Banknote aria-hidden="true" />{language === "lt" ? "Mokėjimas automobilyje" : "Pay in car"}</span>
+            </div>
 
           </section>
         )}
