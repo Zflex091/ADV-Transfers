@@ -1191,6 +1191,11 @@ export default function App() {
           <span className="brand-wordmark"><b>ADV</b><small>SERVICES</small></span>
         </a>
 
+        <nav className="header-nav" aria-label={language === "lt" ? "Pagrindinė navigacija" : "Primary navigation"}>
+          <a href="#services">{language === "lt" ? "Paslaugos" : "Services"}</a>
+          <a href="#booking">{language === "lt" ? "Automobiliai" : "Fleet"}</a>
+        </nav>
+
         <div className="header-actions">
           <div className="language-switcher" aria-label={language === "lt" ? "Kalba" : "Language"}>
             <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button>
@@ -1206,7 +1211,7 @@ export default function App() {
 
       <main id="top" className={step === 1 && !done ? "landing-main" : "booking-main"}>
         {step === 1 && !done && (
-          <section className="hero-copy">
+          <section id="services" className="hero-copy">
             <div className="eyebrow">{language === "lt" ? "Privatūs oro uosto pervežimai" : "Private airport transfers"}</div>
             <h1>{t.heroTitleFirst}<br /><em>{t.heroTitleSecond}</em></h1>
             <p>{t.heroDescription}</p>
@@ -1214,7 +1219,7 @@ export default function App() {
             <div className="hero-trust" aria-label={language === "lt" ? "Paslaugos privalumai" : "Service benefits"}>
               <span><Clock3 aria-hidden="true" />24/7</span>
               <span><LockKeyhole aria-hidden="true" />{language === "lt" ? "Fiksuota kaina" : "Fixed price"}</span>
-              <span><CarFront aria-hidden="true" />{language === "lt" ? "Privati kelionė" : "Private ride"}</span>
+              <span><CarFront aria-hidden="true" />{language === "lt" ? "Profesionalūs vairuotojai" : "Professional drivers"}</span>
             </div>
 
             <div className="hero-payment-note">
@@ -1860,6 +1865,39 @@ export default function App() {
         </div>
       </main>
 
+      {step === 1 && !done && (
+        <section className="home-support-strip" aria-label={language === "lt" ? "Pagalba ir kontaktai" : "Help and contact"}>
+          <div className="home-support-intro">
+            <strong>{language === "lt" ? "Reikia pagalbos?" : "Need help?"}</strong>
+            <span>{language === "lt" ? "Atsakome greitai." : "We reply quickly."}</span>
+          </div>
+
+          <a className="home-support-item" href={`tel:${CONTACT_PHONE_LINK}`}>
+            <span className="home-support-icon"><Phone aria-hidden="true" /></span>
+            <span className="home-support-copy">
+              <small>{language === "lt" ? "Skambinkite" : "Call us"}</small>
+              <strong>{CONTACT_PHONE}</strong>
+            </span>
+          </a>
+
+          <a className="home-support-item" href={`mailto:${CONTACT_EMAIL}`}>
+            <span className="home-support-icon"><Mail aria-hidden="true" /></span>
+            <span className="home-support-copy">
+              <small>{language === "lt" ? "El. paštas" : "Email us"}</small>
+              <strong>{CONTACT_EMAIL}</strong>
+            </span>
+          </a>
+
+          <a className="home-support-item" href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
+            <span className="home-support-icon"><MessageCircle aria-hidden="true" /></span>
+            <span className="home-support-copy">
+              <small>WhatsApp</small>
+              <strong>{language === "lt" ? "Rašykite mums" : "Chat with us"}</strong>
+            </span>
+          </a>
+        </section>
+      )}
+
       <footer id="contacts" className="site-footer">
         <div className="footer-brand">
           <div className="footer-logo-row">
@@ -1884,8 +1922,12 @@ export default function App() {
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 ADV Services</span>
+          <span>© 2026 ADV Services. {language === "lt" ? "Visos teisės saugomos." : "All rights reserved."}</span>
           <span>{language === "lt" ? "Stripe internetu · mokėjimas automobilyje" : "Stripe online · pay in car"}</span>
+          <div className="footer-legal">
+            <a href="#top">{language === "lt" ? "Privatumo politika" : "Privacy Policy"}</a>
+            <a href="#top">{language === "lt" ? "Paslaugų teikimo sąlygos" : "Terms of Service"}</a>
+          </div>
         </div>
       </footer>
     </div>

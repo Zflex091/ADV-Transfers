@@ -88,3 +88,35 @@
   .av-card-actions{grid-template-columns:1fr}
   .av-details-link{min-height:42px}
 }
+
+/* Final booking-flow mobile polish */
+@media(max-width:720px){
+  .vehicle-selector{min-width:0;max-width:100%}
+  .av-quantities{grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .av-quantity{min-width:0;min-height:54px;padding:8px 9px;border-radius:13px}
+  .av-quantity-label{font-size:9px;gap:5px}
+  .av-quantity-label svg{width:14px;height:14px}
+  .av-quantity-actions button{width:29px;height:29px;border-radius:9px}
+  .av-card-grid{grid-template-columns:1fr;gap:11px}
+  .av-card{border-radius:17px}
+  .av-card-topline{min-height:34px;padding:9px 12px 5px;font-size:8px}
+  .av-photo{height:184px;padding:2px 8px 0}
+  .av-photo img{filter:drop-shadow(0 11px 10px rgba(20,38,29,.13))}
+  .av-card-body{padding:12px 13px 13px}
+  .av-card-body h3{font-size:17px}
+  .av-capacity-line{margin-top:5px;font-size:10px}
+  .av-card-price{margin-top:10px;padding-top:10px}
+  .av-card-price strong{font-size:22px}
+  .av-card-actions{margin-top:10px;grid-template-columns:minmax(0,1fr) 46px;gap:7px}
+  .av-vehicle-select,.av-details-link{min-height:44px;border-radius:11px}
+  .av-details-link{padding:8px;font-size:0}
+  .av-details-link svg{width:16px;height:16px}
+  .av-dialog-scroll{padding:16px}
+  .av-dialog-scroll h2{font-size:24px}
+  .av-dialog-scroll .av-photo{height:190px}
+  .av-dialog-bottom{padding:12px;gap:10px}
+}
+@media(max-width:380px){
+  .av-quantities{grid-template-columns:1fr}
+  .av-photo{height:165px}
+}
