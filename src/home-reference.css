@@ -804,3 +804,230 @@
   .site-shell[data-booking-step="1"] .footer-bottom>span:first-child,
   .site-shell[data-booking-step="1"] .footer-legal a{font-size:8.5px !important;}
 }
+
+/* ============================================================
+   HARD FINAL OVERRIDES — exact approved header/footer geometry
+   ============================================================ */
+
+/* Keep the homepage as a full viewport composition so the legal/footer row
+   sits at the bottom instead of floating in the middle of extra whitespace. */
+.site-shell[data-booking-step="1"]{
+  min-height:100svh !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow-x:hidden !important;
+}
+
+/* A real full-width glass band. This deliberately ignores every previous
+   max-width rule from the base stylesheet. */
+.site-shell[data-booking-step="1"] .site-header{
+  position:absolute !important;
+  top:0 !important;
+  left:0 !important;
+  right:0 !important;
+  inset-inline:0 !important;
+  z-index:100 !important;
+  width:100vw !important;
+  max-width:none !important;
+  min-width:100% !important;
+  min-height:86px !important;
+  margin:0 !important;
+  padding:12px max(26px,calc((100vw - 1450px)/2 + 26px)) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:24px !important;
+  border:0 !important;
+  border-bottom:1px solid rgba(255,255,255,.52) !important;
+  border-radius:0 !important;
+  background:linear-gradient(90deg,
+    rgba(251,252,248,.88) 0%,
+    rgba(248,250,246,.66) 42%,
+    rgba(235,240,232,.30) 69%,
+    rgba(18,37,29,.14) 100%) !important;
+  box-shadow:0 1px 0 rgba(23,56,43,.10) !important;
+  backdrop-filter:blur(13px) saturate(118%) !important;
+  -webkit-backdrop-filter:blur(13px) saturate(118%) !important;
+  transform:none !important;
+  box-sizing:border-box !important;
+}
+.site-shell[data-booking-step="1"] .site-header::before{
+  content:"" !important;
+  position:absolute !important;
+  inset:auto 0 -1px 0 !important;
+  width:100% !important;
+  height:1px !important;
+  background:rgba(23,56,43,.14) !important;
+  pointer-events:none !important;
+}
+.site-shell[data-booking-step="1"] .site-header::after{display:none !important;}
+
+/* Logo is always on the far left, controls always on the far right. */
+.site-shell[data-booking-step="1"] .brand{
+  position:relative !important;
+  inset:auto !important;
+  z-index:2 !important;
+  flex:0 0 auto !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:11px !important;
+  margin:0 !important;
+  padding:0 !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  transform:none !important;
+}
+.site-shell[data-booking-step="1"] .brand img{
+  display:block !important;
+  width:54px !important;
+  height:54px !important;
+  object-fit:contain !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+.site-shell[data-booking-step="1"] .brand-wordmark{
+  display:flex !important;
+  flex-direction:column !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+.site-shell[data-booking-step="1"] .brand-wordmark b{font-size:20px !important;}
+.site-shell[data-booking-step="1"] .brand-wordmark small{font-size:8px !important;letter-spacing:.30em !important;}
+.site-shell[data-booking-step="1"] .header-nav,
+.site-shell[data-booking-step="1"] .header-book-link{display:none !important;}
+.site-shell[data-booking-step="1"] .header-actions{
+  position:relative !important;
+  inset:auto !important;
+  z-index:2 !important;
+  flex:0 0 auto !important;
+  margin:0 0 0 auto !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:14px !important;
+  transform:none !important;
+}
+
+/* Hero starts beneath the glass bar while the photo itself still reaches
+   all the way to the top, like the approved reference. */
+.site-shell[data-booking-step="1"] .landing-main{
+  flex:0 0 auto !important;
+  padding-top:136px !important;
+}
+
+/* Slightly smaller date/time than the previous pass. */
+.site-shell[data-booking-step="1"] input[type="date"],
+.site-shell[data-booking-step="1"] input[type="time"]{
+  min-height:54px !important;
+  font-size:13px !important;
+  font-weight:730 !important;
+  letter-spacing:0 !important;
+}
+.site-shell[data-booking-step="1"] .grid2 .input-icon>svg{
+  width:19px !important;
+  height:19px !important;
+}
+
+/* Footer/contact group stays attached to the bottom of the homepage. */
+.site-shell[data-booking-step="1"] .home-support-strip{
+  flex:0 0 auto !important;
+}
+.site-shell[data-booking-step="1"] .site-footer{
+  flex:0 0 auto !important;
+  width:min(1450px,calc(100% - 48px)) !important;
+  min-height:78px !important;
+  margin:0 auto 0 !important;
+  padding:12px 8px 10px !important;
+  display:grid !important;
+  grid-template-columns:minmax(220px,1fr) auto !important;
+  align-items:center !important;
+  gap:24px !important;
+  border-top:1px solid rgba(23,56,43,.14) !important;
+}
+.site-shell[data-booking-step="1"] .footer-brand{
+  align-self:center !important;
+}
+.site-shell[data-booking-step="1"] .footer-logo-row{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+}
+.site-shell[data-booking-step="1"] .footer-bottom{
+  grid-column:2 !important;
+  align-self:center !important;
+  margin:0 !important;
+  padding:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:18px !important;
+  border:0 !important;
+  color:#66756d !important;
+  font-size:10px !important;
+  line-height:1.35 !important;
+}
+.site-shell[data-booking-step="1"] .footer-bottom>span:first-child{
+  font-size:10px !important;
+  white-space:nowrap !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal{
+  display:flex !important;
+  align-items:center !important;
+  gap:0 !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a{
+  position:relative !important;
+  padding:0 11px !important;
+  color:#52645b !important;
+  font-size:10px !important;
+  font-weight:700 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a+a::before{
+  content:"" !important;
+  position:absolute !important;
+  left:0 !important;
+  top:50% !important;
+  width:1px !important;
+  height:14px !important;
+  background:rgba(23,56,43,.18) !important;
+  transform:translateY(-50%) !important;
+}
+
+@media(max-width:720px){
+  .site-shell[data-booking-step="1"] .site-header{
+    min-height:68px !important;
+    padding:8px 12px !important;
+    gap:10px !important;
+    background:linear-gradient(90deg,rgba(250,252,247,.91),rgba(242,247,239,.61),rgba(27,50,39,.18)) !important;
+    backdrop-filter:blur(12px) saturate(116%) !important;
+    -webkit-backdrop-filter:blur(12px) saturate(116%) !important;
+  }
+  .site-shell[data-booking-step="1"] .brand{gap:7px !important;}
+  .site-shell[data-booking-step="1"] .brand img{width:42px !important;height:42px !important;}
+  .site-shell[data-booking-step="1"] .brand-wordmark b{font-size:16px !important;}
+  .site-shell[data-booking-step="1"] .brand-wordmark small{font-size:6px !important;}
+  .site-shell[data-booking-step="1"] .header-actions{gap:7px !important;}
+  .site-shell[data-booking-step="1"] .landing-main{padding-top:88px !important;}
+  .site-shell[data-booking-step="1"] input[type="date"],
+  .site-shell[data-booking-step="1"] input[type="time"]{font-size:12px !important;min-height:50px !important;}
+
+  .site-shell[data-booking-step="1"] .site-footer{
+    width:calc(100% - 20px) !important;
+    min-height:72px !important;
+    padding:10px 4px !important;
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+  }
+  .site-shell[data-booking-step="1"] .footer-bottom{
+    grid-column:1 !important;
+    display:flex !important;
+    justify-content:space-between !important;
+    flex-wrap:wrap !important;
+    gap:7px 12px !important;
+    font-size:8px !important;
+  }
+  .site-shell[data-booking-step="1"] .footer-bottom>span:first-child{font-size:8px !important;}
+  .site-shell[data-booking-step="1"] .footer-legal a{font-size:8px !important;padding:0 7px !important;}
+}
