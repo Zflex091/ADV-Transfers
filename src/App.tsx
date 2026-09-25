@@ -1186,22 +1186,23 @@ export default function App() {
   return (
     <div className="site-shell" data-booking-step={step} data-booking-done={Boolean(done)}>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="ADV Services">
-          <img src="/adv-logo.svg" alt="" />
-          <span className="brand-wordmark"><b>ADV</b><small>SERVICES</small></span>
-        </a>
-
-
-        <div className="header-actions">
-          <div className="language-switcher" aria-label={language === "lt" ? "Kalba" : "Language"}>
-            <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button>
-            <span aria-hidden="true" />
-            <button type="button" className={language === "lt" ? "active" : ""} onClick={() => setLanguage("lt")}>LT</button>
-          </div>
-          <a className="phone" href={`tel:${CONTACT_PHONE_LINK}`} aria-label={`${t.callNow}: ${CONTACT_PHONE}`}>
-            <Phone aria-hidden="true" />
-            <span>{CONTACT_PHONE}</span>
+        <div className="site-header-inner">
+          <a className="brand" href="#top" aria-label="ADV Services">
+            <img src="/adv-logo.svg" alt="" />
+            <span className="brand-wordmark"><b>ADV</b><small>SERVICES</small></span>
           </a>
+
+          <div className="header-actions">
+            <div className="language-switcher" aria-label={language === "lt" ? "Kalba" : "Language"}>
+              <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>EN</button>
+              <span aria-hidden="true" />
+              <button type="button" className={language === "lt" ? "active" : ""} onClick={() => setLanguage("lt")}>LT</button>
+            </div>
+            <a className="phone" href={`tel:${CONTACT_PHONE_LINK}`} aria-label={`${t.callNow}: ${CONTACT_PHONE}`}>
+              <Phone aria-hidden="true" />
+              <span>{CONTACT_PHONE}</span>
+            </a>
+          </div>
         </div>
       </header>
 
