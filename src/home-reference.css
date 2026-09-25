@@ -558,3 +558,249 @@
   .site-shell[data-booking-step="1"] .footer-bottom>span:first-child{font-size:8px !important;white-space:normal !important;}
   .site-shell[data-booking-step="1"] .footer-legal a{padding:0 7px !important;font-size:8px !important;}
 }
+
+/* ============================================================
+   APPROVED REFERENCE ALIGNMENT — final desktop/mobile override
+   Loaded LAST from main.tsx so these rules win predictably.
+   ============================================================ */
+
+/* Header: one full-viewport glass bar; content stays aligned to hero. */
+.site-shell[data-booking-step="1"] .site-header{
+  position:absolute !important;
+  inset:0 0 auto 0 !important;
+  z-index:80 !important;
+  width:100% !important;
+  max-width:none !important;
+  min-height:88px !important;
+  margin:0 !important;
+  padding:12px max(32px,calc((100vw - 1450px)/2 + 32px)) !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:24px !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:visible !important;
+  isolation:isolate !important;
+}
+.site-shell[data-booking-step="1"] .site-header::before{
+  content:"" !important;
+  position:absolute !important;
+  z-index:0 !important;
+  top:0 !important;
+  bottom:0 !important;
+  left:50% !important;
+  width:100vw !important;
+  transform:translateX(-50%) !important;
+  background:linear-gradient(90deg,rgba(250,250,246,.78) 0%,rgba(250,250,246,.56) 43%,rgba(250,250,246,.34) 66%,rgba(250,250,246,.22) 100%) !important;
+  backdrop-filter:blur(16px) saturate(120%) !important;
+  -webkit-backdrop-filter:blur(16px) saturate(120%) !important;
+  pointer-events:none !important;
+}
+.site-shell[data-booking-step="1"] .site-header::after{
+  content:"" !important;
+  position:absolute !important;
+  z-index:1 !important;
+  left:50% !important;
+  bottom:0 !important;
+  width:100vw !important;
+  height:1px !important;
+  transform:translateX(-50%) !important;
+  background:rgba(23,56,43,.16) !important;
+  pointer-events:none !important;
+}
+.site-shell[data-booking-step="1"] .site-header .brand,
+.site-shell[data-booking-step="1"] .site-header .header-actions{
+  position:relative !important;
+  z-index:2 !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+.site-shell[data-booking-step="1"] .brand{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:12px !important;
+  flex:0 0 auto !important;
+}
+.site-shell[data-booking-step="1"] .brand img{
+  width:56px !important;
+  height:56px !important;
+  display:block !important;
+}
+.site-shell[data-booking-step="1"] .brand-wordmark{
+  display:flex !important;
+  flex-direction:column !important;
+}
+.site-shell[data-booking-step="1"] .brand-wordmark b{font-size:21px !important;}
+.site-shell[data-booking-step="1"] .brand-wordmark small{font-size:8px !important;letter-spacing:.30em !important;}
+.site-shell[data-booking-step="1"] .header-nav,
+.site-shell[data-booking-step="1"] .header-book-link{display:none !important;}
+.site-shell[data-booking-step="1"] .header-actions{
+  margin-left:auto !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:14px !important;
+}
+
+/* Headline spacing: keep the two lines visually separated like the reference. */
+.site-shell[data-booking-step="1"] .hero-copy h1{
+  line-height:1 !important;
+  margin-bottom:22px !important;
+}
+.site-shell[data-booking-step="1"] .hero-copy h1 em{
+  display:block !important;
+  margin-top:14px !important;
+  line-height:.98 !important;
+}
+
+/* Payment methods: compact, readable and visible without crowding the reference layout. */
+.site-shell[data-booking-step="1"] .hero-payment-note{
+  display:flex !important;
+  align-items:center !important;
+  flex-wrap:wrap !important;
+  gap:9px !important;
+  margin-top:14px !important;
+  color:#29483b !important;
+}
+.site-shell[data-booking-step="1"] .hero-payment-note span{
+  min-height:31px !important;
+  padding:6px 10px !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:7px !important;
+  border:1px solid rgba(23,56,43,.09) !important;
+  border-radius:999px !important;
+  background:rgba(240,248,216,.76) !important;
+  color:#29483b !important;
+  font-size:9.5px !important;
+  font-weight:800 !important;
+  backdrop-filter:blur(5px) !important;
+  -webkit-backdrop-filter:blur(5px) !important;
+}
+.site-shell[data-booking-step="1"] .hero-payment-note svg{
+  width:14px !important;
+  height:14px !important;
+  color:#17382b !important;
+}
+
+/* Form alignment: one icon per input, centered vertically. */
+.site-shell[data-booking-step="1"] .input-icon,
+.site-shell[data-booking-step="1"] .place-input-shell{
+  position:relative !important;
+  display:flex !important;
+  align-items:center !important;
+}
+.site-shell[data-booking-step="1"] .input-icon>svg,
+.site-shell[data-booking-step="1"] .place-input-shell>svg{
+  position:absolute !important;
+  z-index:5 !important;
+  left:16px !important;
+  top:50% !important;
+  width:19px !important;
+  height:19px !important;
+  margin:0 !important;
+  transform:translateY(-50%) !important;
+  color:#466b58 !important;
+  pointer-events:none !important;
+}
+.site-shell[data-booking-step="1"] .input-icon input,
+.site-shell[data-booking-step="1"] .place-input-shell input{
+  padding-left:48px !important;
+  padding-right:38px !important;
+}
+
+/* Date/time: slightly smaller than previous pass; hide duplicate native icons. */
+.site-shell[data-booking-step="1"] input[type="date"],
+.site-shell[data-booking-step="1"] input[type="time"]{
+  min-height:54px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  letter-spacing:0 !important;
+  color:#17251f !important;
+}
+.site-shell[data-booking-step="1"] input[type="date"]::-webkit-calendar-picker-indicator,
+.site-shell[data-booking-step="1"] input[type="time"]::-webkit-calendar-picker-indicator{
+  opacity:0 !important;
+  width:18px !important;
+  height:18px !important;
+  margin:0 !important;
+  cursor:pointer !important;
+}
+
+/* CTA: more emphasis than the form values, without becoming oversized. */
+.site-shell[data-booking-step="1"] .primary{
+  min-height:58px !important;
+  gap:11px !important;
+  font-size:13.5px !important;
+  font-weight:900 !important;
+  letter-spacing:0 !important;
+}
+.site-shell[data-booking-step="1"] .primary svg{
+  width:19px !important;
+  height:19px !important;
+  stroke-width:2.2 !important;
+}
+
+/* Footer legal line: readable and balanced like the approved reference. */
+.site-shell[data-booking-step="1"] .footer-bottom{
+  gap:18px !important;
+  font-size:10.5px !important;
+  line-height:1.4 !important;
+  color:#69786f !important;
+}
+.site-shell[data-booking-step="1"] .footer-bottom>span:first-child{
+  font-size:10.5px !important;
+  white-space:nowrap !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal{
+  display:flex !important;
+  align-items:center !important;
+  gap:0 !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a{
+  padding:0 11px !important;
+  color:#596960 !important;
+  font-size:10.5px !important;
+  font-weight:700 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+}
+.site-shell[data-booking-step="1"] .footer-legal a+a{border-left:1px solid rgba(23,56,43,.16) !important;}
+
+@media(max-width:980px){
+  .site-shell[data-booking-step="1"] .site-header{
+    padding-inline:24px !important;
+  }
+}
+
+@media(max-width:720px){
+  .site-shell[data-booking-step="1"] .site-header{
+    min-height:72px !important;
+    padding:9px 12px !important;
+    gap:8px !important;
+  }
+  .site-shell[data-booking-step="1"] .site-header::before{
+    background:rgba(248,249,244,.68) !important;
+    backdrop-filter:blur(14px) saturate(120%) !important;
+    -webkit-backdrop-filter:blur(14px) saturate(120%) !important;
+  }
+  .site-shell[data-booking-step="1"] .brand img{width:42px !important;height:42px !important;}
+  .site-shell[data-booking-step="1"] .brand-wordmark b{font-size:16px !important;}
+  .site-shell[data-booking-step="1"] .brand-wordmark small{font-size:6px !important;}
+  .site-shell[data-booking-step="1"] .header-actions{gap:7px !important;}
+  .site-shell[data-booking-step="1"] .hero-copy h1 em{margin-top:9px !important;}
+  .site-shell[data-booking-step="1"] .hero-payment-note{margin-top:11px !important;gap:6px !important;}
+  .site-shell[data-booking-step="1"] .hero-payment-note span{min-height:29px !important;padding:5px 8px !important;font-size:8.5px !important;}
+  .site-shell[data-booking-step="1"] .input-icon>svg,
+  .site-shell[data-booking-step="1"] .place-input-shell>svg{left:14px !important;width:18px !important;height:18px !important;}
+  .site-shell[data-booking-step="1"] .input-icon input,
+  .site-shell[data-booking-step="1"] .place-input-shell input{padding-left:43px !important;padding-right:34px !important;}
+  .site-shell[data-booking-step="1"] input[type="date"],
+  .site-shell[data-booking-step="1"] input[type="time"]{min-height:51px !important;font-size:12px !important;}
+  .site-shell[data-booking-step="1"] .primary{min-height:54px !important;font-size:12.5px !important;}
+  .site-shell[data-booking-step="1"] .footer-bottom>span:first-child,
+  .site-shell[data-booking-step="1"] .footer-legal a{font-size:8.5px !important;}
+}

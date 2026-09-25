@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import "./home-reference.css";
 import {
   ArrowRight,
   Banknote,
