@@ -1228,7 +1228,7 @@ export default function App() {
             </div>
 
             <div className="hero-car" aria-hidden="true">
-              <img src="/economy-cutout.png" alt="" />
+              <img src="/home-mercedes-mobile.webp" alt="" />
             </div>
           </section>
         )}
