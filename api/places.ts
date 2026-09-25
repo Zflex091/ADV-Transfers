@@ -1,41 +1,34 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
-  GoogleMapsUpstreamError,
+  MapboxUpstreamError,
   consumeRateLimit,
-  fetchGoogleJson,
-  getGoogleMapsServerKey,
+  fetchMapboxJson,
+  getMapboxServerToken,
   getQueryValue,
   isValidSessionToken,
   normalizeLanguage,
-} from "./_google-maps.js";
+} from "./_mapbox.js";
 
-const AUTOCOMPLETE_URL =
-  "https://places.googleapis.com/v1/places:autocomplete";
-const AUTOCOMPLETE_FIELDS = [
-  "suggestions.placePrediction.placeId",
-  "suggestions.placePrediction.text.text",
-  "suggestions.placePrediction.structuredFormat.mainText.text",
-  "suggestions.placePrediction.structuredFormat.secondaryText.text",
-  "suggestions.placePrediction.types",
-].join(",");
+const AUTOCOMPLETE_URL = "https://api.mapbox.com/search/searchbox/v1/suggest";
 
-type GoogleAutocompleteResponse = {
-  suggestions?: Array<{
-    placePrediction?: {
-      placeId?: string;
-      text?: { text?: string };
-      structuredFormat?: {
-        mainText?: { text?: string };
-        secondaryText?: { text?: string };
-      };
-      types?: string[];
-    };
-  }>;
+type MapboxSuggestion = {
+  name?: string;
+  name_preferred?: string;
+  mapbox_id?: string;
+  feature_type?: string;
+  address?: string;
+  full_address?: string;
+  place_formatted?: string;
+  poi_category?: string[];
+};
+
+type MapboxAutocompleteResponse = {
+  suggestions?: MapboxSuggestion[];
 };
 
 export type PlaceSuggestion = {
-  provider: "google";
+  provider: "mapbox";
   providerPlaceId: string;
   label: string;
   mainText: string;
@@ -43,40 +36,44 @@ export type PlaceSuggestion = {
   types: string[];
 };
 
+function suggestionLabel(suggestion: MapboxSuggestion) {
+  const fullAddress = suggestion.full_address?.trim();
+  if (fullAddress) return fullAddress;
+
+  const name = (suggestion.name_preferred || suggestion.name || "").trim();
+  const context = suggestion.place_formatted?.trim() ?? "";
+  if (name && context) return `${name}, ${context}`;
+  return name || suggestion.address?.trim() || context;
+}
+
 export function mapAutocompleteResponse(
-  data: GoogleAutocompleteResponse,
+  data: MapboxAutocompleteResponse,
 ): PlaceSuggestion[] {
   if (!Array.isArray(data.suggestions)) {
     return [];
   }
 
   return data.suggestions.flatMap((suggestion) => {
-    const prediction = suggestion.placePrediction;
-    const providerPlaceId = prediction?.placeId?.trim() ?? "";
-    const label = prediction?.text?.text?.trim() ?? "";
+    const providerPlaceId = suggestion.mapbox_id?.trim() ?? "";
+    const label = suggestionLabel(suggestion);
+    const mainText = (suggestion.name_preferred || suggestion.name || label).trim();
+    const secondaryText = suggestion.place_formatted?.trim() ?? "";
 
-    if (!providerPlaceId || !label) {
+    if (!providerPlaceId || !label || !mainText) {
       return [];
     }
 
-    return [
-      {
-        provider: "google" as const,
-        providerPlaceId,
-        label,
-        mainText:
-          prediction?.structuredFormat?.mainText?.text?.trim() ||
-          label,
-        secondaryText:
-          prediction?.structuredFormat?.secondaryText?.text?.trim() ||
-          "",
-        types: Array.isArray(prediction?.types)
-          ? prediction.types.filter(
-              (type): type is string => typeof type === "string",
-            )
-          : [],
-      },
-    ];
+    const types = [suggestion.feature_type, ...(suggestion.poi_category ?? [])]
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+    return [{
+      provider: "mapbox" as const,
+      providerPlaceId,
+      label,
+      mainText,
+      secondaryText,
+      types,
+    }];
   });
 }
 
@@ -92,17 +89,14 @@ export default async function handler(
   }
 
   const query = getQueryValue(req.query.q).trim();
-
   if (query.length < 2) {
     return res.status(200).json([]);
   }
-
   if (query.length > 160) {
     return res.status(400).json({ error: "Adreso paieškos tekstas per ilgas." });
   }
 
   const sessionToken = getQueryValue(req.query.sessionToken).trim();
-
   if (!isValidSessionToken(sessionToken)) {
     return res.status(400).json({
       error: "Nepavyko pradėti saugios adresų paieškos sesijos.",
@@ -111,7 +105,7 @@ export default async function handler(
 
   const rateLimit = consumeRateLimit(
     req.headers,
-    req.socket.remoteAddress,
+    req.socket?.remoteAddress,
     "places-autocomplete",
     90,
   );
@@ -129,53 +123,36 @@ export default async function handler(
     });
   }
 
-  const apiKey = getGoogleMapsServerKey();
-
-  if (!apiKey) {
+  const accessToken = getMapboxServerToken();
+  if (!accessToken) {
     return res.status(503).json({
       error: "Adresų paieška laikinai nesukonfigūruota. Susisiekite su mumis.",
     });
   }
 
-  const languageCode = normalizeLanguage(
-    getQueryValue(req.query.language),
-  );
+  const url = new URL(AUTOCOMPLETE_URL);
+  url.searchParams.set("q", query);
+  url.searchParams.set("session_token", sessionToken);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("language", normalizeLanguage(getQueryValue(req.query.language)));
+  url.searchParams.set("country", "LT");
+  url.searchParams.set("limit", "6");
+  url.searchParams.set("proximity", "23.9036,54.8985");
+  url.searchParams.set("types", "address,poi,street,place,locality");
 
   try {
-    const data = await fetchGoogleJson<GoogleAutocompleteResponse>(
-      AUTOCOMPLETE_URL,
-      apiKey,
-      AUTOCOMPLETE_FIELDS,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          input: query,
-          sessionToken,
-          languageCode,
-          regionCode: "LT",
-          locationBias: {
-            circle: {
-              center: {
-                latitude: 54.8985,
-                longitude: 23.9036,
-              },
-              radius: 50_000,
-            },
-          },
-        }),
-      },
-    );
-
+    const data = await fetchMapboxJson<MapboxAutocompleteResponse>(url.toString());
     return res.status(200).json(mapAutocompleteResponse(data));
   } catch (error) {
+    const upstreamStatus =
+      error instanceof MapboxUpstreamError ? error.status : "unknown";
     const status =
-      error instanceof GoogleMapsUpstreamError && error.status === 504
-        ? 504
-        : 502;
+      error instanceof MapboxUpstreamError && error.status === 504 ? 504 : 502;
 
-    console.error("Google Places autocomplete klaida", {
-      status:
-        error instanceof GoogleMapsUpstreamError ? error.status : "unknown",
+    console.error("Mapbox Search autocomplete klaida", {
+      status: upstreamStatus,
+      detail:
+        error instanceof MapboxUpstreamError ? error.detail.slice(0, 500) : "",
     });
 
     return res.status(status).json({

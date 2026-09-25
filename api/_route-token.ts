@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { getGoogleMapsServerKey, isCoordinate } from "./_google-maps.js";
+import { isCoordinate } from "./_mapbox.js";
 
 export const ROUTE_TOKEN_TTL_MS = 30 * 60_000;
 
@@ -20,10 +20,11 @@ export type RouteTokenClaims = Readonly<{
 
 function signingKey(): Buffer | null {
   const secret =
-    process.env.ROUTE_TOKEN_SECRET?.trim() || getGoogleMapsServerKey();
+    process.env.ROUTE_TOKEN_SECRET?.trim() ||
+    process.env.ORDER_STATUS_SECRET?.trim() ||
+    process.env.DATABASE_URL?.trim();
   if (!secret) return null;
 
-  // Separate this purpose from the Maps API key even when it is the fallback.
   return createHmac("sha256", secret)
     .update("adv-transfers:route-quote-token:v1", "utf8")
     .digest();

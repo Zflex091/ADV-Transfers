@@ -1,22 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
-  GoogleMapsUpstreamError,
+  MapboxUpstreamError,
   consumeRateLimit,
-  fetchGoogleJson,
-  getGoogleMapsServerKey,
+  fetchMapboxJson,
+  getMapboxServerToken,
   isCoordinate,
-  normalizeLanguage,
-} from "./_google-maps.js";
+} from "./_mapbox.js";
 import { createRouteToken } from "./_route-token.js";
-
-const ROUTES_URL =
-  "https://routes.googleapis.com/directions/v2:computeRoutes";
-const ROUTES_FIELDS = [
-  "routes.distanceMeters",
-  "routes.duration",
-  "routes.polyline.encodedPolyline",
-].join(",");
 
 type RoutePoint = {
   latitude?: unknown;
@@ -29,39 +20,42 @@ type RouteRequest = {
   language?: unknown;
 };
 
-type GoogleRoutesResponse = {
+type MapboxDirectionsResponse = {
+  code?: string;
+  message?: string;
   routes?: Array<{
-    distanceMeters?: number;
-    duration?: string;
-    polyline?: { encodedPolyline?: string };
+    distance?: number;
+    duration?: number;
+    geometry?: string;
   }>;
 };
 
-export function parseRouteResponse(data: GoogleRoutesResponse) {
+export function parseRouteResponse(data: MapboxDirectionsResponse) {
   const route = data.routes?.[0];
-  const distanceMeters = route?.distanceMeters;
-  const durationMatch = route?.duration?.match(/^(\d+(?:\.\d+)?)s$/);
-  const durationSeconds = durationMatch
-    ? Math.max(1, Math.round(Number(durationMatch[1])))
-    : Number.NaN;
-  const encodedPolyline = route?.polyline?.encodedPolyline?.trim() ?? "";
+  const distanceMeters = route?.distance;
+  const durationSeconds = route?.duration;
+  const encodedPolyline = route?.geometry?.trim() ?? "";
 
   if (
     !Number.isFinite(distanceMeters) ||
     (distanceMeters ?? 0) <= 0 ||
     !Number.isFinite(durationSeconds) ||
+    (durationSeconds ?? 0) <= 0 ||
     !encodedPolyline
   ) {
     return null;
   }
 
+  const roundedDistance = Math.round(distanceMeters as number);
+  const roundedDuration = Math.max(1, Math.round(durationSeconds as number));
+
   return {
-    provider: "google" as const,
-    distanceMeters: Math.round(distanceMeters as number),
-    durationSeconds,
+    provider: "mapbox" as const,
+    distanceMeters: roundedDistance,
+    durationSeconds: roundedDuration,
     encodedPolyline,
-    distanceKm: Number(((distanceMeters as number) / 1000).toFixed(1)),
-    durationMin: Math.max(1, Math.ceil(durationSeconds / 60)),
+    distanceKm: Number((roundedDistance / 1000).toFixed(1)),
+    durationMin: Math.max(1, Math.ceil(roundedDuration / 60)),
   };
 }
 
@@ -109,7 +103,7 @@ export default async function handler(
 
   const rateLimit = consumeRateLimit(
     req.headers,
-    req.socket.remoteAddress,
+    req.socket?.remoteAddress,
     "routes",
     20,
   );
@@ -127,37 +121,32 @@ export default async function handler(
     });
   }
 
-  const apiKey = getGoogleMapsServerKey();
-
-  if (!apiKey) {
+  const accessToken = getMapboxServerToken();
+  if (!accessToken) {
     return res.status(503).json({
       error: "Maršrutų skaičiavimas laikinai nesukonfigūruotas. Susisiekite su mumis.",
     });
   }
 
-  const trafficAware =
-    process.env.GOOGLE_ROUTES_TRAFFIC_AWARE === "true";
+  const profile =
+    process.env.MAPBOX_ROUTES_TRAFFIC_AWARE === "true"
+      ? "mapbox/driving-traffic"
+      : "mapbox/driving";
+  const coordinates = [
+    `${origin.longitude},${origin.latitude}`,
+    `${destination.longitude},${destination.latitude}`,
+  ].join(";");
+  const url = new URL(
+    `https://api.mapbox.com/directions/v5/${profile}/${coordinates}`,
+  );
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("alternatives", "false");
+  url.searchParams.set("overview", "full");
+  url.searchParams.set("geometries", "polyline6");
+  url.searchParams.set("steps", "false");
 
   try {
-    const data = await fetchGoogleJson<GoogleRoutesResponse>(
-      ROUTES_URL,
-      apiKey,
-      ROUTES_FIELDS,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          origin: { location: { latLng: origin } },
-          destination: { location: { latLng: destination } },
-          travelMode: "DRIVE",
-          routingPreference: trafficAware
-            ? "TRAFFIC_AWARE"
-            : "TRAFFIC_UNAWARE",
-          computeAlternativeRoutes: false,
-          languageCode: normalizeLanguage(body.language),
-          units: "METRIC",
-        }),
-      },
-    );
+    const data = await fetchMapboxJson<MapboxDirectionsResponse>(url.toString());
     const route = parseRouteResponse(data);
 
     if (!route) {
@@ -181,15 +170,14 @@ export default async function handler(
 
     return res.status(200).json({ ...route, routeToken });
   } catch (error) {
-    console.error("Google Routes klaida", {
-      status:
-        error instanceof GoogleMapsUpstreamError ? error.status : "unknown",
+    console.error("Mapbox Directions klaida", {
+      status: error instanceof MapboxUpstreamError ? error.status : "unknown",
+      detail:
+        error instanceof MapboxUpstreamError ? error.detail.slice(0, 500) : "",
     });
 
     return res.status(
-      error instanceof GoogleMapsUpstreamError && error.status === 504
-        ? 504
-        : 502,
+      error instanceof MapboxUpstreamError && error.status === 504 ? 504 : 502,
     ).json({
       error:
         "Maršruto apskaičiuoti nepavyko. Patikrinkite adresus arba susisiekite su mumis.",

@@ -2807,6 +2807,18 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   height: 18px;
 }
 
+.google-maps-attribution a {
+  color: #182536;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.google-maps-attribution a:hover {
+  text-decoration: underline;
+}
+
 .google-route-map {
   position: relative;
   min-height: 250px;

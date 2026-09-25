@@ -31,7 +31,7 @@ function requiredText(value: unknown, maximum: number): string | null {
 }
 
 function selectedPlace(value: unknown): SelectedPlace | null {
-  if (!isRecord(value) || value.provider !== "google") return null;
+  if (!isRecord(value) || (value.provider !== "mapbox" && value.provider !== "google")) return null;
   const label = requiredText(value.label, 500);
   const providerPlaceId = requiredText(value.providerPlaceId, 512);
   if (
@@ -45,7 +45,7 @@ function selectedPlace(value: unknown): SelectedPlace | null {
     Math.abs(value.longitude) > 180
   ) return null;
   return {
-    provider: "google",
+    provider: value.provider as "mapbox" | "google",
     providerPlaceId,
     label,
     latitude: value.latitude,
@@ -102,7 +102,7 @@ export function prepareCheckoutRequest(input: unknown) {
       scheduledAtUtc: fare.scheduledAtUtc,
     },
     route: {
-      provider: "google",
+      provider: "mapbox",
       distanceMeters: fare.route.distanceMeters,
       durationSeconds: fare.route.durationSeconds,
       encodedPolyline: null,

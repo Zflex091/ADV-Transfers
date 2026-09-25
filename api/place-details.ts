@@ -1,34 +1,78 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
-  GoogleMapsUpstreamError,
+  MapboxUpstreamError,
   consumeRateLimit,
-  fetchGoogleJson,
-  getGoogleMapsServerKey,
+  fetchMapboxJson,
+  getMapboxServerToken,
   getQueryValue,
   isCoordinate,
-  isValidPlaceId,
+  isValidMapboxId,
   isValidSessionToken,
   normalizeLanguage,
-} from "./_google-maps.js";
+} from "./_mapbox.js";
 import { createVerifiedPlaceToken } from "./_place-token.js";
 
-const PLACE_DETAILS_FIELDS = "id,formattedAddress,location";
-
-type GooglePlaceDetails = {
-  id?: string;
-  formattedAddress?: string;
-  location?: {
-    latitude?: number;
-    longitude?: number;
+type MapboxFeature = {
+  geometry?: {
+    type?: string;
+    coordinates?: unknown[];
+  };
+  properties?: {
+    name?: string;
+    name_preferred?: string;
+    mapbox_id?: string;
+    address?: string;
+    full_address?: string;
+    place_formatted?: string;
+    coordinates?: {
+      latitude?: number;
+      longitude?: number;
+      routable_points?: Array<{
+        latitude?: number;
+        longitude?: number;
+      }>;
+    };
   };
 };
 
-export function mapPlaceDetails(data: GooglePlaceDetails) {
-  const providerPlaceId = data.id?.trim() ?? "";
-  const label = data.formattedAddress?.trim() ?? "";
-  const latitude = data.location?.latitude;
-  const longitude = data.location?.longitude;
+type MapboxRetrieveResponse = {
+  features?: MapboxFeature[];
+};
+
+function placeLabel(feature: MapboxFeature) {
+  const properties = feature.properties;
+  const fullAddress = properties?.full_address?.trim();
+  if (fullAddress) return fullAddress;
+
+  const name = (properties?.name_preferred || properties?.name || "").trim();
+  const context = properties?.place_formatted?.trim() ?? "";
+  if (name && context) return `${name}, ${context}`;
+  return name || properties?.address?.trim() || context;
+}
+
+export function mapPlaceDetails(data: MapboxRetrieveResponse) {
+  const feature = data.features?.[0];
+  const properties = feature?.properties;
+  const providerPlaceId = properties?.mapbox_id?.trim() ?? "";
+  const label = feature ? placeLabel(feature) : "";
+
+  const routable = properties?.coordinates?.routable_points?.find(
+    (point) =>
+      isCoordinate(point?.latitude, -90, 90) &&
+      isCoordinate(point?.longitude, -180, 180),
+  );
+
+  const geometryCoordinates = feature?.geometry?.coordinates;
+  const geometryLongitude = Array.isArray(geometryCoordinates)
+    ? geometryCoordinates[0]
+    : undefined;
+  const geometryLatitude = Array.isArray(geometryCoordinates)
+    ? geometryCoordinates[1]
+    : undefined;
+
+  const latitude = routable?.latitude ?? properties?.coordinates?.latitude ?? geometryLatitude;
+  const longitude = routable?.longitude ?? properties?.coordinates?.longitude ?? geometryLongitude;
 
   if (
     !providerPlaceId ||
@@ -40,7 +84,7 @@ export function mapPlaceDetails(data: GooglePlaceDetails) {
   }
 
   return {
-    provider: "google" as const,
+    provider: "mapbox" as const,
     providerPlaceId,
     label,
     latitude,
@@ -62,13 +106,13 @@ export default async function handler(
   const placeId = getQueryValue(req.query.placeId).trim();
   const sessionToken = getQueryValue(req.query.sessionToken).trim();
 
-  if (!isValidPlaceId(placeId) || !isValidSessionToken(sessionToken)) {
+  if (!isValidMapboxId(placeId) || !isValidSessionToken(sessionToken)) {
     return res.status(400).json({ error: "Neteisingai pasirinktas adresas." });
   }
 
   const rateLimit = consumeRateLimit(
     req.headers,
-    req.socket.remoteAddress,
+    req.socket?.remoteAddress,
     "place-details",
     30,
   );
@@ -86,31 +130,22 @@ export default async function handler(
     });
   }
 
-  const apiKey = getGoogleMapsServerKey();
-
-  if (!apiKey) {
+  const accessToken = getMapboxServerToken();
+  if (!accessToken) {
     return res.status(503).json({
       error: "Adresų paieška laikinai nesukonfigūruota. Susisiekite su mumis.",
     });
   }
 
   const url = new URL(
-    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+    `https://api.mapbox.com/search/searchbox/v1/retrieve/${encodeURIComponent(placeId)}`,
   );
-  url.searchParams.set(
-    "languageCode",
-    normalizeLanguage(getQueryValue(req.query.language)),
-  );
-  url.searchParams.set("regionCode", "LT");
-  url.searchParams.set("sessionToken", sessionToken);
+  url.searchParams.set("session_token", sessionToken);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("language", normalizeLanguage(getQueryValue(req.query.language)));
 
   try {
-    const data = await fetchGoogleJson<GooglePlaceDetails>(
-      url.toString(),
-      apiKey,
-      PLACE_DETAILS_FIELDS,
-      { method: "GET" },
-    );
+    const data = await fetchMapboxJson<MapboxRetrieveResponse>(url.toString());
     const place = mapPlaceDetails(data);
 
     if (!place || place.providerPlaceId !== placeId) {
@@ -128,15 +163,14 @@ export default async function handler(
 
     return res.status(200).json({ ...place, placeToken });
   } catch (error) {
-    console.error("Google Place Details klaida", {
-      status:
-        error instanceof GoogleMapsUpstreamError ? error.status : "unknown",
+    console.error("Mapbox Search retrieve klaida", {
+      status: error instanceof MapboxUpstreamError ? error.status : "unknown",
+      detail:
+        error instanceof MapboxUpstreamError ? error.detail.slice(0, 500) : "",
     });
 
     return res.status(
-      error instanceof GoogleMapsUpstreamError && error.status === 504
-        ? 504
-        : 502,
+      error instanceof MapboxUpstreamError && error.status === 504 ? 504 : 502,
     ).json({
       error: "Nepavyko patvirtinti pasirinkto adreso. Bandykite dar kartą.",
     });

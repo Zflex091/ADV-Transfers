@@ -1,21 +1,73 @@
-import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { decodeGooglePolyline } from "../maps/polyline";
+import { decodePolyline } from "../maps/polyline";
 
-let loaderKey: string | null = null;
+const MAPBOX_GL_VERSION = "3.30.0";
+const MAPBOX_SCRIPT_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.js`;
+const MAPBOX_STYLE_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.css`;
 
-function configureLoader(apiKey: string) {
-  if (loaderKey === null) {
-    setOptions({ key: apiKey, v: "weekly" });
-    loaderKey = apiKey;
-    return;
+type MapboxNamespace = {
+  Map: new (options: Record<string, unknown>) => any;
+  Marker: new (options?: Record<string, unknown>) => any;
+  LngLatBounds: new (sw?: [number, number], ne?: [number, number]) => any;
+};
+
+declare global {
+  interface Window {
+    mapboxgl?: MapboxNamespace;
   }
+}
 
-  if (loaderKey !== apiKey) {
-    throw new Error("Google Maps rakto negalima pakeisti neperkraunant puslapio.");
-  }
+let loaderPromise: Promise<MapboxNamespace> | null = null;
+
+function loadMapboxGl(): Promise<MapboxNamespace> {
+  if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
+  if (loaderPromise) return loaderPromise;
+
+  loaderPromise = new Promise<MapboxNamespace>((resolve, reject) => {
+    if (!document.querySelector(`link[href="${MAPBOX_STYLE_URL}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = MAPBOX_STYLE_URL;
+      document.head.appendChild(link);
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${MAPBOX_SCRIPT_URL}"]`,
+    );
+
+    const complete = () => {
+      if (window.mapboxgl) resolve(window.mapboxgl);
+      else reject(new Error("Mapbox GL nepavyko įkelti."));
+    };
+
+    if (existing) {
+      if (window.mapboxgl) complete();
+      else {
+        existing.addEventListener("load", complete, { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("Mapbox GL nepavyko įkelti.")),
+          { once: true },
+        );
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = MAPBOX_SCRIPT_URL;
+    script.async = true;
+    script.addEventListener("load", complete, { once: true });
+    script.addEventListener(
+      "error",
+      () => reject(new Error("Mapbox GL nepavyko įkelti.")),
+      { once: true },
+    );
+    document.head.appendChild(script);
+  });
+
+  return loaderPromise;
 }
 
 type Props = {
@@ -30,11 +82,12 @@ export default function GoogleRouteMap({
   ariaLabel,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const overlaysRef = useRef<google.maps.MVCObject[]>([]);
+  const mapRef = useRef<any>(null);
+  const mapboxRef = useRef<MapboxNamespace | null>(null);
+  const markersRef = useRef<any[]>([]);
   const [mapsReady, setMapsReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_BROWSER_API_KEY?.trim();
+  const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN?.trim();
   const copy =
     language === "en"
       ? {
@@ -52,37 +105,36 @@ export default function GoogleRouteMap({
 
   useEffect(() => {
     let cancelled = false;
-    const resolvedApiKey = apiKey ?? "";
 
-    if (!resolvedApiKey) {
+    if (!accessToken) {
       setMapFailed(true);
       return;
     }
 
     async function initialize() {
       try {
-        configureLoader(resolvedApiKey);
-        const { Map } = await importLibrary("maps");
+        const mapboxgl = await loadMapboxGl();
+        if (cancelled || !containerRef.current) return;
 
-        if (cancelled || !containerRef.current) {
-          return;
-        }
-
-        mapRef.current = new Map(containerRef.current, {
-          center: { lat: 54.8985, lng: 23.9036 },
+        mapboxRef.current = mapboxgl;
+        const map = new mapboxgl.Map({
+          accessToken,
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center: [23.9036, 54.8985],
           zoom: 10,
-          mapTypeControl: false,
-          streetViewControl: false,
-          fullscreenControl: true,
-          clickableIcons: false,
-          gestureHandling: "cooperative",
+          attributionControl: true,
+          cooperativeGestures: true,
         });
-        setMapsReady(true);
-        setMapFailed(false);
+        mapRef.current = map;
+        map.on("load", () => {
+          if (!cancelled) {
+            setMapsReady(true);
+            setMapFailed(false);
+          }
+        });
       } catch {
-        if (!cancelled) {
-          setMapFailed(true);
-        }
+        if (!cancelled) setMapFailed(true);
       }
     }
 
@@ -90,71 +142,74 @@ export default function GoogleRouteMap({
 
     return () => {
       cancelled = true;
+      markersRef.current.forEach((marker) => marker.remove?.());
+      markersRef.current = [];
+      mapRef.current?.remove?.();
+      mapRef.current = null;
+      mapboxRef.current = null;
+      setMapsReady(false);
     };
-  }, [apiKey]);
+  }, [accessToken]);
 
   useEffect(() => {
-    overlaysRef.current.forEach((overlay) => {
-      if ("setMap" in overlay) {
-        (overlay as google.maps.Polyline | google.maps.Circle).setMap(null);
-      }
-    });
-    overlaysRef.current = [];
+    const map = mapRef.current;
+    const mapboxgl = mapboxRef.current;
+    if (!mapsReady || !map || !mapboxgl || !encodedPolyline) return;
 
-    if (!mapsReady || !mapRef.current || !encodedPolyline) {
-      return;
-    }
+    markersRef.current.forEach((marker) => marker.remove?.());
+    markersRef.current = [];
 
     try {
-      const path = decodeGooglePolyline(encodedPolyline);
-      const route = new google.maps.Polyline({
-        path,
-        strokeColor: "#12664f",
-        strokeOpacity: 0.95,
-        strokeWeight: 6,
-        map: mapRef.current,
+      const path = decodePolyline(encodedPolyline, 6);
+      const coordinates = path.map(
+        (point) => [point.lng, point.lat] as [number, number],
+      );
+
+      if (map.getLayer?.("adv-route")) map.removeLayer("adv-route");
+      if (map.getSource?.("adv-route")) map.removeSource("adv-route");
+
+      map.addSource("adv-route", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: { type: "LineString", coordinates },
+        },
       });
-      const endpointOptions = {
-        radius: 7,
-        fillColor: "#ffffff",
-        fillOpacity: 1,
-        strokeColor: "#12664f",
-        strokeOpacity: 1,
-        strokeWeight: 4,
-        map: mapRef.current,
-      };
-      const start = new google.maps.Circle({
-        ...endpointOptions,
-        center: path[0],
+      map.addLayer({
+        id: "adv-route",
+        type: "line",
+        source: "adv-route",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#12664f",
+          "line-width": 6,
+          "line-opacity": 0.95,
+        },
       });
-      const finish = new google.maps.Circle({
-        ...endpointOptions,
-        center: path[path.length - 1],
-      });
-      const bounds = new google.maps.LatLngBounds();
-      path.forEach((point) => bounds.extend(point));
-      mapRef.current.fitBounds(bounds, 44);
-      overlaysRef.current = [route, start, finish];
+
+      const start = new mapboxgl.Marker({ color: "#12664f" })
+        .setLngLat(coordinates[0])
+        .addTo(map);
+      const finish = new mapboxgl.Marker({ color: "#12664f" })
+        .setLngLat(coordinates[coordinates.length - 1])
+        .addTo(map);
+      markersRef.current = [start, finish];
+
+      const bounds = new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]);
+      coordinates.slice(1).forEach((coordinate) => bounds.extend(coordinate));
+      map.fitBounds(bounds, { padding: 44, maxZoom: 15, duration: 0 });
       setMapFailed(false);
     } catch {
       setMapFailed(true);
     }
-
-    return () => {
-      overlaysRef.current.forEach((overlay) => {
-        if ("setMap" in overlay) {
-          (overlay as google.maps.Polyline | google.maps.Circle).setMap(null);
-        }
-      });
-      overlaysRef.current = [];
-    };
   }, [encodedPolyline, mapsReady]);
 
   return (
-    <section
-      className="google-route-map"
-      aria-label={ariaLabel || copy.label}
-    >
+    <section className="google-route-map" aria-label={ariaLabel || copy.label}>
       <div ref={containerRef} className="google-route-map-canvas" />
       {!mapsReady && !mapFailed && (
         <div className="route-map-state" role="status">

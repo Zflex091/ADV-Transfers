@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import { consumeRateLimit } from "./_google-maps.js";
+import { consumeRateLimit } from "./_mapbox.js";
 import { getVehicleQuotes, QuoteRequestError } from "./_quote.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
@@ -13,7 +13,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
 
   const rateLimit = consumeRateLimit(
     req.headers,
-    req.socket.remoteAddress,
+    req.socket?.remoteAddress,
     "quotes",
     60,
   );

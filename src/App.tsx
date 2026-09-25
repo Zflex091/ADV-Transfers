@@ -985,7 +985,7 @@ export default function App() {
       }
 
       if (
-        data.provider !== "google" ||
+        data.provider !== "mapbox" ||
         !Number.isFinite(data.distanceMeters) ||
         !Number.isFinite(data.durationSeconds) ||
         typeof data.encodedPolyline !== "string" ||
@@ -1008,7 +1008,7 @@ export default function App() {
         distanceMeters: data.distanceMeters,
         durationSeconds: data.durationSeconds,
         routePolyline: data.encodedPolyline,
-        routeProvider: "google",
+        routeProvider: "mapbox",
         routeToken: data.routeToken,
         vehicleId: null,
         pricing: null,

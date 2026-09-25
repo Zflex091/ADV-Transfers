@@ -1,10 +1,15 @@
 export type RoutePoint = { lat: number; lng: number };
 
-export function decodeGooglePolyline(encoded: string): RoutePoint[] {
+export function decodePolyline(encoded: string, precision = 5): RoutePoint[] {
+  if (!Number.isInteger(precision) || precision < 0 || precision > 7) {
+    throw new Error("Netinkamas maršruto tikslumas.");
+  }
+
   const points: RoutePoint[] = [];
   let index = 0;
   let latitude = 0;
   let longitude = 0;
+  const factor = 10 ** precision;
 
   function decodeValue() {
     let result = 0;
@@ -32,7 +37,7 @@ export function decodeGooglePolyline(encoded: string): RoutePoint[] {
   while (index < encoded.length) {
     latitude += decodeValue();
     longitude += decodeValue();
-    points.push({ lat: latitude / 1e5, lng: longitude / 1e5 });
+    points.push({ lat: latitude / factor, lng: longitude / factor });
   }
 
   if (points.length < 2) {
@@ -40,4 +45,9 @@ export function decodeGooglePolyline(encoded: string): RoutePoint[] {
   }
 
   return points;
+}
+
+// Palikta suderinamumui su senais testais / įrašais.
+export function decodeGooglePolyline(encoded: string): RoutePoint[] {
+  return decodePolyline(encoded, 5);
 }

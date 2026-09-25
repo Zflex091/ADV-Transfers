@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 
-import { consumeRateLimit } from "./_google-maps.js";
+import { consumeRateLimit } from "./_mapbox.js";
 import { CheckoutRequestError, prepareCheckoutRequest } from "./_checkout-data.js";
 import {
   OrderConflictError,
@@ -59,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ error: "Svetainės mokėjimo adresas nesukonfigūruotas." });
   }
 
-  const rateLimit = consumeRateLimit(req.headers, req.socket.remoteAddress, "checkout", 10);
+  const rateLimit = consumeRateLimit(req.headers, req.socket?.remoteAddress, "checkout", 10);
   if (!rateLimit.allowed) {
     res.setHeader("Retry-After", String(Math.max(1, Math.ceil((rateLimit.resetAt - Date.now()) / 1000))));
     return res.status(429).json({ error: "Per daug mokėjimo bandymų. Palaukite minutę." });

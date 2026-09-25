@@ -189,7 +189,7 @@ export function calculatePaymentPlan(
   };
 }
 
-export type PlaceProvider = "nominatim" | "google" | "legacy";
+export type PlaceProvider = "nominatim" | "google" | "mapbox" | "legacy";
 
 export type SelectedPlace = Readonly<{
   provider: PlaceProvider;
@@ -200,7 +200,7 @@ export type SelectedPlace = Readonly<{
 }>;
 
 export type RouteSnapshot = Readonly<{
-  provider: "osrm" | "google" | "legacy";
+  provider: "osrm" | "google" | "mapbox" | "legacy";
   distanceMeters: number;
   durationSeconds: number;
   encodedPolyline: string | null;
@@ -486,8 +486,8 @@ function isSelectedPlace(value: unknown): value is SelectedPlace {
   if (!isRecord(value)) return false;
 
   return (
-    ["nominatim", "google", "legacy"].includes(String(value.provider)) &&
-    isNonEmptyString(value.providerPlaceId, 300) &&
+    ["nominatim", "google", "mapbox", "legacy"].includes(String(value.provider)) &&
+    isNonEmptyString(value.providerPlaceId, 512) &&
     isNonEmptyString(value.label, 500) &&
     typeof value.latitude === "number" &&
     value.latitude >= -90 &&
@@ -586,7 +586,7 @@ export function validateReservationDraft(
   if (!isRecord(route)) {
     issues.push({ path: "route", code: "required" });
   } else {
-    if (!['osrm', 'google', 'legacy'].includes(String(route.provider)))
+    if (!['osrm', 'google', 'mapbox', 'legacy'].includes(String(route.provider)))
       issues.push({ path: "route.provider", code: "invalid" });
     if (!Number.isInteger(route.distanceMeters) || Number(route.distanceMeters) <= 0)
       issues.push({ path: "route.distanceMeters", code: "invalid" });
