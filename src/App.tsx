@@ -24,6 +24,9 @@ import {
   Route,
   Mail,
   MessageCircle,
+  Music2,
+  Languages,
+  BadgeCheck,
 } from "lucide-react";
 
 import PlaceField from "./components/PlaceField";
@@ -1481,13 +1484,12 @@ export default function App() {
                 <div className="preference-list">
                   <section className={`preference-item ${booking.preferences.spotify.enabled ? "is-enabled" : ""}`}>
                     <div className="preference-row">
-                      <span className="preference-index" aria-hidden="true">01</span>
+                      <span className="preference-icon preference-icon--spotify" aria-hidden="true"><Music2 /></span>
                       <div className="preference-copy">
                         <label htmlFor="pref-spotify">{language === "lt" ? "Mano Spotify muzika" : "Play my Spotify music"}</label>
-                        <p id="pref-spotify-description">{language === "lt" ? "Muzikos pageidavimas kelionei." : "Optional music request."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
-                      <input id="pref-spotify" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-spotify-description" checked={booking.preferences.spotify.enabled} onChange={(event) => updatePreference("spotify", { enabled: event.target.checked })} />
+                      <input id="pref-spotify" className="preference-toggle" type="checkbox" role="switch" checked={booking.preferences.spotify.enabled} onChange={(event) => updatePreference("spotify", { enabled: event.target.checked })} />
                     </div>
                     {booking.preferences.spotify.enabled && (
                       <div className="preference-detail">
@@ -1499,13 +1501,12 @@ export default function App() {
 
                   <section className={`preference-item ${booking.preferences.preferredLanguage.enabled ? "is-enabled" : ""}`}>
                     <div className="preference-row">
-                      <span className="preference-index" aria-hidden="true">02</span>
+                      <span className="preference-icon preference-icon--language" aria-hidden="true"><Languages /></span>
                       <div className="preference-copy">
                         <label htmlFor="pref-language">{language === "lt" ? "Pageidaujama vairuotojo kalba" : "Preferred driver language"}</label>
-                        <p id="pref-language-description">{language === "lt" ? "Pageidaujama vairuotojo kalba." : "Request a preferred driver language."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
-                      <input id="pref-language" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-language-description" checked={booking.preferences.preferredLanguage.enabled} onChange={(event) => updatePreference("preferredLanguage", { enabled: event.target.checked })} />
+                      <input id="pref-language" className="preference-toggle" type="checkbox" role="switch" checked={booking.preferences.preferredLanguage.enabled} onChange={(event) => updatePreference("preferredLanguage", { enabled: event.target.checked })} />
                     </div>
                     {booking.preferences.preferredLanguage.enabled && (
                       <div className="preference-detail">
@@ -1530,13 +1531,12 @@ export default function App() {
 
                   <section className={`preference-item ${booking.preferences.meetAndGreet.enabled ? "is-enabled" : ""}`}>
                     <div className="preference-row">
-                      <span className="preference-index" aria-hidden="true">03</span>
+                      <span className="preference-icon preference-icon--meet" aria-hidden="true"><BadgeCheck /></span>
                       <div className="preference-copy">
                         <label htmlFor="pref-meet">{language === "lt" ? "Pasitikimas su lentele" : "Meet me with a sign"}</label>
-                        <p id="pref-meet-description">{language === "lt" ? "Pasitikimas oro uoste su lentele." : "Name sign at arrivals."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
-                      <input id="pref-meet" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-meet-description" checked={booking.preferences.meetAndGreet.enabled} onChange={(event) => updatePreference("meetAndGreet", { enabled: event.target.checked })} />
+                      <input id="pref-meet" className="preference-toggle" type="checkbox" role="switch" checked={booking.preferences.meetAndGreet.enabled} onChange={(event) => updatePreference("meetAndGreet", { enabled: event.target.checked })} />
                     </div>
                     {booking.preferences.meetAndGreet.enabled && (
                       <div className="preference-detail">
@@ -1548,13 +1548,12 @@ export default function App() {
 
                   <section className={`preference-item ${booking.preferences.driverComment.enabled ? "is-enabled" : ""}`}>
                     <div className="preference-row">
-                      <span className="preference-index" aria-hidden="true">04</span>
+                      <span className="preference-icon preference-icon--comment" aria-hidden="true"><MessageCircle /></span>
                       <div className="preference-copy">
                         <label htmlFor="pref-comment">{language === "lt" ? "Komentaras vairuotojui" : "Comment for the driver"}</label>
-                        <p id="pref-comment-description">{language === "lt" ? "Trumpa žinutė vairuotojui." : "Anything the driver should know."}</p>
                       </div>
                       <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
-                      <input id="pref-comment" className="preference-toggle" type="checkbox" role="switch" aria-describedby="pref-comment-description" checked={booking.preferences.driverComment.enabled} onChange={(event) => updatePreference("driverComment", { enabled: event.target.checked })} />
+                      <input id="pref-comment" className="preference-toggle" type="checkbox" role="switch" checked={booking.preferences.driverComment.enabled} onChange={(event) => updatePreference("driverComment", { enabled: event.target.checked })} />
                     </div>
                     {booking.preferences.driverComment.enabled && (
                       <div className="preference-detail">
@@ -1566,7 +1565,6 @@ export default function App() {
                   </section>
                 </div>
 
-                <p className="preference-note">{language === "lt" ? "Visi pageidavimai nemokami." : "All extras are free."}</p>
 
                 {error && <div className="error" role="alert">{error}</div>}
                 <button className="primary" type="button" onClick={() => continueTo(5)}>
@@ -1602,19 +1600,13 @@ export default function App() {
                     <input id="booking-last-name" value={booking.lastName} onChange={(event) => update("lastName", event.target.value)} placeholder={t.lastNamePlaceholder} autoComplete="family-name" />
                   </div>
                 </div>
-                <div className="field-wrap">
+                <div className="field-wrap contact-field contact-field--phone">
                   <label htmlFor="booking-phone">{t.phoneNumber}</label>
-                  <div className="input-icon">
-                    <Phone />
-                    <input id="booking-phone" type="tel" value={booking.phone} onChange={(event) => update("phone", event.target.value)} placeholder={t.phonePlaceholder} autoComplete="tel" />
-                  </div>
+                  <input id="booking-phone" type="tel" value={booking.phone} onChange={(event) => update("phone", event.target.value)} placeholder={t.phonePlaceholder} autoComplete="tel" />
                 </div>
-                <div className="field-wrap">
+                <div className="field-wrap contact-field contact-field--email">
                   <label htmlFor="booking-email">{t.emailAddress}</label>
-                  <div className="input-icon">
-                    <Mail />
-                    <input id="booking-email" type="email" maxLength={254} value={booking.email} onChange={(event) => update("email", event.target.value)} placeholder={t.emailPlaceholder} autoComplete="email" required />
-                  </div>
+                  <input id="booking-email" type="email" maxLength={254} value={booking.email} onChange={(event) => update("email", event.target.value)} placeholder={t.emailPlaceholder} autoComplete="email" required />
                 </div>
 
                 <div className="booking-overview">
