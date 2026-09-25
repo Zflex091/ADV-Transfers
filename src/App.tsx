@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import "./home-reference.css";
 import {
   ArrowRight,
   Banknote,
@@ -1191,10 +1192,6 @@ export default function App() {
           <span className="brand-wordmark"><b>ADV</b><small>SERVICES</small></span>
         </a>
 
-        <nav className="header-nav" aria-label={language === "lt" ? "Pagrindinė navigacija" : "Primary navigation"}>
-          <a href="#services">{language === "lt" ? "Paslaugos" : "Services"}</a>
-          <a href="#booking">{language === "lt" ? "Automobiliai" : "Fleet"}</a>
-        </nav>
 
         <div className="header-actions">
           <div className="language-switcher" aria-label={language === "lt" ? "Kalba" : "Language"}>
@@ -1222,14 +1219,7 @@ export default function App() {
               <span><CarFront aria-hidden="true" />{language === "lt" ? "Profesionalūs vairuotojai" : "Professional drivers"}</span>
             </div>
 
-            <div className="hero-payment-note">
-              <span><CreditCard aria-hidden="true" />{language === "lt" ? "Stripe internetu" : "Stripe online"}</span>
-              <span><Banknote aria-hidden="true" />{language === "lt" ? "Mokėjimas automobilyje" : "Pay in car"}</span>
-            </div>
 
-            <div className="hero-car" aria-hidden="true">
-              <img src="/home-mercedes-mobile.webp" alt="" />
-            </div>
           </section>
         )}
 
