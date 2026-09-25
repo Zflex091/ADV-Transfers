@@ -169,7 +169,8 @@ function money(cents: number, language: Language): string {
   return new Intl.NumberFormat(language === "lt" ? "lt-LT" : "en-IE", {
     style: "currency",
     currency: "EUR",
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(cents / 100);
 }
 

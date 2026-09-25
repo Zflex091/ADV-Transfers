@@ -130,10 +130,14 @@ export function calculatePricing(
 
   const normalizedDistanceMeters = Math.round(distanceMeters);
   const vehicle = VEHICLES[vehicleId];
-  const routeChargeCents = Math.round(
-    (normalizedDistanceMeters * vehicle.rateCentsPerKm) / 1000,
-  );
-  const subtotalCents = vehicle.boardingFeeCents + routeChargeCents;
+  const rawRouteChargeCents =
+    (normalizedDistanceMeters * vehicle.rateCentsPerKm) / 1000;
+  const rawSubtotalCents = vehicle.boardingFeeCents + rawRouteChargeCents;
+
+  // Customer-facing fares are always whole euros and any fractional euro
+  // is rounded upward: 34.01 € -> 35 €, 34.70 € -> 35 €.
+  const subtotalCents = Math.ceil(rawSubtotalCents / 100) * 100;
+  const routeChargeCents = subtotalCents - vehicle.boardingFeeCents;
   const baseFareCents = Math.max(
     vehicle.minimumFareCents,
     subtotalCents,

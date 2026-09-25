@@ -35,6 +35,7 @@ import type {
 } from "./types";
 import {
   calculatePaymentPlan,
+  calculatePricing,
   createEmptyPreferences,
   getVehicleCapacity,
   VEHICLES,
@@ -695,84 +696,9 @@ export default function App() {
     };
   }, [checkoutReturn, statusRefresh]);
 
-  useEffect(() => {
-    if (checkoutReturn) return;
-    if (!booking.routeToken || !booking.vehicleId) {
-      setQuoteLoading(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const selectedVehicleId = booking.vehicleId;
-    const routeToken = booking.routeToken;
-    const passengers = booking.passengers;
-    const luggage = booking.luggage;
-    setQuoteLoading(true);
-    setQuoteError("");
-
-    async function confirmQuote() {
-      try {
-        const response = await fetch("/api/quote", {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ routeToken, passengers, luggage }),
-          signal: controller.signal,
-        });
-        const result = await parseApiJson(response, t.routeError);
-
-        if (!response.ok) {
-          throw new Error(apiErrorText(result.error, t.routeError));
-        }
-
-        const selected = result.vehicles?.find(
-          (vehicle: { vehicleId: VehicleId }) =>
-            vehicle.vehicleId === selectedVehicleId,
-        );
-        const pricing = selected?.pricing as PricingSnapshot | null;
-
-        if (
-          !selected?.capacity?.available ||
-          !pricing ||
-          pricing.vehicleId !== selectedVehicleId ||
-          pricing.distanceMeters !== booking.distanceMeters ||
-          !Number.isInteger(pricing.totalCents) ||
-          pricing.totalCents < 2500
-        ) {
-          throw new Error(
-            language === "lt"
-              ? "Pasirinkta kelionė nebetinka. Patikrinkite keleivių ir bagažo skaičių."
-              : "This vehicle is no longer available for your party. Check your passenger and luggage counts.",
-          );
-        }
-
-        if (!controller.signal.aborted) {
-          setBooking((current) =>
-            current.routeToken === routeToken &&
-            current.vehicleId === selectedVehicleId &&
-            current.passengers === passengers &&
-            current.luggage === luggage
-              ? {
-                  ...current,
-                  pricing,
-                  price: pricing.totalCents / 100,
-                }
-              : current,
-          );
-        }
-      } catch (caughtError) {
-        if (controller.signal.aborted) return;
-        setQuoteError(safeApiMessage(caughtError, t.routeError));
-      } finally {
-        if (!controller.signal.aborted) setQuoteLoading(false);
-      }
-    }
-
-    void confirmQuote();
-    return () => controller.abort();
-  }, [booking.routeToken, booking.vehicleId, booking.passengers, booking.luggage, booking.distanceMeters, language, t.routeError, checkoutReturn]);
+  // Vehicle selection uses the same shared pricing rules immediately.
+  // The signed route is still verified and the fare is recalculated on the server
+  // when checkout is created, so a temporary /api/quote failure cannot block selection.
 
   const update = <K extends keyof Booking>(
     key: K,
@@ -809,13 +735,17 @@ export default function App() {
           ? current.vehicleId
           : null;
 
+      const pricing = vehicleId && current.distanceMeters > 0
+        ? calculatePricing(vehicleId, current.distanceMeters)
+        : null;
+
       return {
         ...current,
         passengers,
         luggage,
         vehicleId,
-        pricing: null,
-        price: 0,
+        pricing,
+        price: pricing ? pricing.totalCents / 100 : 0,
       };
     });
   }
@@ -825,12 +755,15 @@ export default function App() {
       return;
     }
 
+    const pricing = calculatePricing(vehicleId, booking.distanceMeters);
+
     setQuoteError("");
+    setQuoteLoading(false);
     setBooking((current) => ({
       ...current,
       vehicleId,
-      pricing: null,
-      price: 0,
+      pricing,
+      price: pricing.totalCents / 100,
     }));
   }
 
