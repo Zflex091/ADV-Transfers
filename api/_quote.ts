@@ -6,14 +6,14 @@ import {
   parseTripPreferences,
   type PricingSnapshot,
   type VehicleId,
-} from "../src/domain/booking.ts";
-import { ScheduleError, validatePickupSchedule } from "../src/domain/schedule.ts";
-import { placeMatchesVerifiedToken } from "./_place-token.ts";
+} from "../src/domain/booking.js";
+import { ScheduleError, validatePickupSchedule } from "../src/domain/schedule.js";
+import { placeMatchesVerifiedToken } from "./_place-token.js";
 import {
   placeMatchesRoutePoint,
   verifyRouteToken,
   type RouteTokenClaims,
-} from "./_route-token.ts";
+} from "./_route-token.js";
 
 export type VehicleQuote = Readonly<{
   vehicleId: VehicleId;

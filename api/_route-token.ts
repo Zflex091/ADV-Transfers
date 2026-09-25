@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { getGoogleMapsServerKey, isCoordinate } from "./_google-maps.ts";
+import { getGoogleMapsServerKey, isCoordinate } from "./_google-maps.js";
 
 export const ROUTE_TOKEN_TTL_MS = 30 * 60_000;
 

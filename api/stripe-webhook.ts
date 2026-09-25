@@ -7,9 +7,9 @@ import {
   checkoutOrderId,
   inspectCheckoutEvent,
   isRelevantCheckoutEvent,
-} from "./_checkout-event.ts";
-import { queueOwnerBookingEmail, sendOwnerBookingEmail } from "./_booking-notifications.ts";
-import { findOrderBySessionId, markFailed, markPaid } from "./_orders.ts";
+} from "./_checkout-event.js";
+import { queueOwnerBookingEmail, sendOwnerBookingEmail } from "./_booking-notifications.js";
+import { findOrderBySessionId, markFailed, markPaid } from "./_orders.js";
 
 export const config = { api: { bodyParser: false } };
 

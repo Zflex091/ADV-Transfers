@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { getGoogleMapsServerKey, isCoordinate, isValidPlaceId } from "./_google-maps.ts";
+import { getGoogleMapsServerKey, isCoordinate, isValidPlaceId } from "./_google-maps.js";
 
 /** A place selection may outlive a refreshed route, but not an abandoned tab. */
 export const PLACE_TOKEN_TTL_MS = 2 * 60 * 60_000;

@@ -1,5 +1,5 @@
-import type { OrderRecord } from "./_orders.ts";
-import { BUSINESS_TIME_ZONE, VEHICLES } from "../src/domain/booking.ts";
+import type { OrderRecord } from "./_orders.js";
+import { BUSINESS_TIME_ZONE, VEHICLES } from "../src/domain/booking.js";
 
 export type BookingEmail = Readonly<{
   subject: string;

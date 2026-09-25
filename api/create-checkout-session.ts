@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 
-import { consumeRateLimit } from "./_google-maps.ts";
-import { CheckoutRequestError, prepareCheckoutRequest } from "./_checkout-data.ts";
+import { consumeRateLimit } from "./_google-maps.js";
+import { CheckoutRequestError, prepareCheckoutRequest } from "./_checkout-data.js";
 import {
   OrderConflictError,
   attachCheckoutSession,
@@ -11,8 +11,8 @@ import {
   getOrderById,
   releaseCheckoutCreation,
   type OrderRecord,
-} from "./_orders.ts";
-import { QuoteRequestError } from "./_quote.ts";
+} from "./_orders.js";
+import { QuoteRequestError } from "./_quote.js";
 
 function siteBaseUrl(): string | null {
   const configured = process.env.PUBLIC_SITE_URL?.trim();

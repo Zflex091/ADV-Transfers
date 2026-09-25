@@ -7,8 +7,8 @@ import {
   validateReservationDraft,
   type ReservationDraft,
   type SelectedPlace,
-} from "../src/domain/booking.ts";
-import { getVerifiedFare } from "./_quote.ts";
+} from "../src/domain/booking.js";
+import { getVerifiedFare } from "./_quote.js";
 
 export class CheckoutRequestError extends Error {
   readonly status: 400 | 409;

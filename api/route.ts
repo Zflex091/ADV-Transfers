@@ -7,8 +7,8 @@ import {
   getGoogleMapsServerKey,
   isCoordinate,
   normalizeLanguage,
-} from "./_google-maps.ts";
-import { createRouteToken } from "./_route-token.ts";
+} from "./_google-maps.js";
+import { createRouteToken } from "./_route-token.js";
 
 const ROUTES_URL =
   "https://routes.googleapis.com/directions/v2:computeRoutes";

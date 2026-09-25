@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import { consumeRateLimit } from "./_google-maps.ts";
-import { getVehicleQuotes, QuoteRequestError } from "./_quote.ts";
+import { consumeRateLimit } from "./_google-maps.js";
+import { getVehicleQuotes, QuoteRequestError } from "./_quote.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store");

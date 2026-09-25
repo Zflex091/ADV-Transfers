@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import nodemailer from "nodemailer";
 import { Pool } from "pg";
 
-import { renderOwnerBookingEmail } from "./_booking-email.ts";
-import { getOrderById, type OrderRecord } from "./_orders.ts";
+import { renderOwnerBookingEmail } from "./_booking-email.js";
+import { getOrderById, type OrderRecord } from "./_orders.js";
 
 export type EmailDeliveryResult =
   | "sent"

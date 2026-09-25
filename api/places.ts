@@ -8,7 +8,7 @@ import {
   getQueryValue,
   isValidSessionToken,
   normalizeLanguage,
-} from "./_google-maps.ts";
+} from "./_google-maps.js";
 
 const AUTOCOMPLETE_URL =
   "https://places.googleapis.com/v1/places:autocomplete";

@@ -5,7 +5,7 @@ import {
   calculatePaymentPlan,
   type PaymentPlan,
   type ReservationDraft,
-} from "../src/domain/booking.ts";
+} from "../src/domain/booking.js";
 
 export type OrderStatus = "pending" | "paid" | "failed" | "cancelled";
 

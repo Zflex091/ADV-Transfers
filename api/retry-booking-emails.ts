@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import { processPendingBookingEmails } from "./_booking-notifications.ts";
+import { processPendingBookingEmails } from "./_booking-notifications.js";
 
 const BATCH_SIZE = 2;
 

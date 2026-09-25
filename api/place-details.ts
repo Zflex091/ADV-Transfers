@@ -10,8 +10,8 @@ import {
   isValidPlaceId,
   isValidSessionToken,
   normalizeLanguage,
-} from "./_google-maps.ts";
-import { createVerifiedPlaceToken } from "./_place-token.ts";
+} from "./_google-maps.js";
+import { createVerifiedPlaceToken } from "./_place-token.js";
 
 const PLACE_DETAILS_FIELDS = "id,formattedAddress,location";
 
