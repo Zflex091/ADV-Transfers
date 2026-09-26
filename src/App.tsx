@@ -1144,6 +1144,10 @@ export default function App() {
       </header>
 
       <main id="top" className={step === 1 && !done ? "landing-main" : "booking-main"}>
+        {step === 1 && !done && (<>
+          <div className="home-hero-photo-layer" aria-hidden="true" />
+          <div className="home-hero-veil-layer" aria-hidden="true" />
+        </>)}
         {step === 1 && !done && (
           <section id="services" className="hero-copy">
             <div className="eyebrow">{language === "lt" ? "Privatūs oro uosto pervežimai" : "Private airport transfers"}</div>

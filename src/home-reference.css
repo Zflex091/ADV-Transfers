@@ -1334,3 +1334,64 @@
     -webkit-backdrop-filter:none !important;
   }
 }
+
+/* ============================================================
+   2026-09-26 HARD FIX: one physical photo layer + one veil layer.
+   This intentionally stops using the landing-main background/pseudo
+   layers on the homepage, removing the mobile vertical brightness seam.
+   ============================================================ */
+.site-shell[data-booking-step="1"] .landing-main{
+  isolation:isolate !important;
+  background:none !important;
+  background-image:none !important;
+}
+.site-shell[data-booking-step="1"] .landing-main::before,
+.site-shell[data-booking-step="1"] .landing-main::after{
+  content:none !important;
+  display:none !important;
+}
+.site-shell[data-booking-step="1"] .home-hero-photo-layer,
+.site-shell[data-booking-step="1"] .home-hero-veil-layer{
+  position:absolute !important;
+  inset:0 !important;
+  width:100% !important;
+  height:100% !important;
+  pointer-events:none !important;
+}
+.site-shell[data-booking-step="1"] .home-hero-photo-layer{
+  z-index:-2 !important;
+  background:url('/home-hero-bg.webp') center 57% / cover no-repeat !important;
+}
+.site-shell[data-booking-step="1"] .home-hero-veil-layer{
+  z-index:-1 !important;
+  background:linear-gradient(90deg,
+    rgba(255,255,255,.95) 0%,
+    rgba(255,255,255,.89) 27%,
+    rgba(255,255,255,.58) 44%,
+    rgba(255,255,255,.10) 62%,
+    rgba(255,255,255,0) 76%) !important;
+}
+.site-shell[data-booking-step="1"] .hero-copy,
+.site-shell[data-booking-step="1"] .booking-workspace{
+  position:relative !important;
+  z-index:2 !important;
+}
+
+@media(max-width:980px){
+  .site-shell[data-booking-step="1"] .home-hero-photo-layer{
+    background-position:62% center !important;
+  }
+  .site-shell[data-booking-step="1"] .home-hero-veil-layer{
+    background:rgba(251,250,244,.54) !important;
+  }
+}
+
+@media(max-width:720px){
+  .site-shell[data-booking-step="1"] .home-hero-photo-layer{
+    background-position:64% center !important;
+  }
+  .site-shell[data-booking-step="1"] .home-hero-veil-layer{
+    /* Exact same light veil at every x-coordinate: no split, no gradient. */
+    background:rgba(251,250,244,.54) !important;
+  }
+}
