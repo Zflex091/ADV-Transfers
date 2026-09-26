@@ -1289,3 +1289,15 @@
     transition-duration:.01ms !important;
   }
 }
+
+/* 2026-09-26 mobile hero consistency: use one even light veil across the photo.
+   This removes the visible light/dark vertical split on phones without changing desktop. */
+@media(max-width:720px){
+  .site-shell[data-booking-step="1"] .landing-main::before{
+    display:block !important;
+    inset:0 !important;
+    background:rgba(251,250,244,.54) !important;
+    filter:none !important;
+    transform:none !important;
+  }
+}
