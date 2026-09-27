@@ -8,7 +8,7 @@ export type VehicleId = "economy" | "executive-minivan";
 
 export type VehicleDefinition = Readonly<{
   id: VehicleId;
-  className: "Economy" | "Executive Minivan";
+  className: "Standart" | "Executive Minivan";
   model: string;
   rateCentsPerKm: number;
   boardingFeeCents: number;
@@ -20,7 +20,7 @@ export type VehicleDefinition = Readonly<{
 export const VEHICLES: Readonly<Record<VehicleId, VehicleDefinition>> = {
   economy: {
     id: "economy",
-    className: "Economy",
+    className: "Standart",
     model: "Opel Astra ST Black Edition 2025",
     rateCentsPerKm: 220,
     boardingFeeCents: 300,
@@ -252,11 +252,17 @@ export type DriverComment = Readonly<{
   text: string;
 }>;
 
+export type TogglePreference = Readonly<{
+  enabled: boolean;
+}>;
+
 export type TripPreferences = Readonly<{
   spotify: SpotifyPreference;
   preferredLanguage: PreferredLanguage;
   meetAndGreet: MeetAndGreet;
   driverComment: DriverComment;
+  boosterSeat: TogglePreference;
+  silenceService: TogglePreference;
 }>;
 
 export type ReservationDraft = Readonly<{
@@ -365,6 +371,8 @@ export function createEmptyPreferences(): TripPreferences {
     },
     meetAndGreet: { enabled: false, signText: "" },
     driverComment: { enabled: false, text: "" },
+    boosterSeat: { enabled: false },
+    silenceService: { enabled: false },
   };
 }
 
@@ -465,8 +473,25 @@ export function parseTripPreferences(input: unknown): ParsedTripPreferences {
     driverComment = rawComment.enabled === true ? { enabled: true, text: commentText } : empty.driverComment;
   }
 
+  let boosterSeat = empty.boosterSeat;
+  if (input.boosterSeat !== undefined) {
+    const rawBooster = section(input.boosterSeat, "preferences.boosterSeat");
+    if (rawBooster) {
+      boosterSeat = rawBooster.enabled === true ? { enabled: true } : empty.boosterSeat;
+    }
+  }
+
+  let silenceService = empty.silenceService;
+  if (input.silenceService !== undefined) {
+    const rawSilence = section(input.silenceService, "preferences.silenceService");
+    if (rawSilence) {
+      silenceService = rawSilence.enabled === true ? { enabled: true } : empty.silenceService;
+    }
+  }
+
   // Disabled sections are validated, then erased so hidden stale text is never active.
-  return { preferences: { spotify, preferredLanguage, meetAndGreet, driverComment }, issues };
+  // The two newer boolean preferences stay optional for older saved bookings.
+  return { preferences: { spotify, preferredLanguage, meetAndGreet, driverComment, boosterSeat, silenceService }, issues };
 }
 
 export type ReservationValidation = Readonly<{

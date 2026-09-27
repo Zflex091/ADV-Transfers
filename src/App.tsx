@@ -28,6 +28,8 @@ import {
   Languages,
   BadgeCheck,
   MessageSquareText,
+  Baby,
+  VolumeX,
 } from "lucide-react";
 
 import PlaceField from "./components/PlaceField";
@@ -190,7 +192,7 @@ const translations = {
     contactNav: "Kontaktai",
     serviceLine: "Pirmiausia maršrutas, tada tinkamas automobilis ir aiški kaina.",
 
-    estimatedPrice: "Orientacinė Economy kaina",
+    estimatedPrice: "Orientacinė Standart kaina",
     airportCityPrice:
       "Kauno oro uostas → miesto centras / senamiestis: 35–40 €",
 
@@ -302,7 +304,7 @@ const translations = {
     contactNav: "Contact",
     serviceLine: "First the route, then the right vehicle and a clear fare.",
 
-    estimatedPrice: "Estimated Economy fare",
+    estimatedPrice: "Estimated Standart fare",
     airportCityPrice:
       "Kaunas Airport → city centre / old town: €35–40",
 
@@ -454,6 +456,12 @@ function activePreferences(preferences: TripPreferences): TripPreferences {
     driverComment: preferences.driverComment.enabled
       ? { enabled: true, text: preferences.driverComment.text.trim() }
       : { enabled: false, text: "" },
+    boosterSeat: preferences.boosterSeat?.enabled
+      ? { enabled: true }
+      : { enabled: false },
+    silenceService: preferences.silenceService?.enabled
+      ? { enabled: true }
+      : { enabled: false },
   };
 }
 
@@ -513,6 +521,18 @@ function preferenceSummary(
     rows.push({
       label: language === "lt" ? "Komentaras vairuotojui" : "Driver comment",
       value: active.driverComment.text || (language === "lt" ? "Papildomų detalių nėra" : "No further details"),
+    });
+  }
+  if (active.boosterSeat.enabled) {
+    rows.push({
+      label: language === "lt" ? "Paaukštinanti kėdutė (15–35 kg)" : "Booster seat (15–35 kg)",
+      value: language === "lt" ? "Pasirinkta" : "Requested",
+    });
+  }
+  if (active.silenceService.enabled) {
+    rows.push({
+      label: language === "lt" ? "Tylos paslauga" : "Silence service",
+      value: language === "lt" ? "Pageidaujama" : "Requested",
     });
   }
   return rows;
@@ -1571,6 +1591,30 @@ export default function App() {
                         <small>{booking.preferences.driverComment.text.length} / 1000</small>
                       </div>
                     )}
+                  </section>
+
+                  <section className={`preference-item ${booking.preferences.boosterSeat.enabled ? "is-enabled" : ""}`}>
+                    <div className="preference-row">
+                      <span className="preference-index" aria-hidden="true">05</span>
+                      <span className="preference-icon preference-icon--booster" aria-hidden="true"><Baby /></span>
+                      <div className="preference-copy">
+                        <label htmlFor="pref-booster">{language === "lt" ? "Paaukštinanti kėdutė (15–35 kg)" : "Booster seat (15–35 kg)"}</label>
+                      </div>
+                      <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
+                      <input id="pref-booster" className="preference-toggle" type="checkbox" role="switch" checked={booking.preferences.boosterSeat.enabled} onChange={(event) => updatePreference("boosterSeat", { enabled: event.target.checked })} />
+                    </div>
+                  </section>
+
+                  <section className={`preference-item ${booking.preferences.silenceService.enabled ? "is-enabled" : ""}`}>
+                    <div className="preference-row">
+                      <span className="preference-index" aria-hidden="true">06</span>
+                      <span className="preference-icon preference-icon--silence" aria-hidden="true"><VolumeX /></span>
+                      <div className="preference-copy">
+                        <label htmlFor="pref-silence">{language === "lt" ? "Tylos paslauga" : "Silence service"}</label>
+                      </div>
+                      <span className="preference-free">{language === "lt" ? "Nemokamai" : "Free"}</span>
+                      <input id="pref-silence" className="preference-toggle" type="checkbox" role="switch" checked={booking.preferences.silenceService.enabled} onChange={(event) => updatePreference("silenceService", { enabled: event.target.checked })} />
+                    </div>
                   </section>
                 </div>
 

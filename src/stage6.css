@@ -39,6 +39,14 @@
   color:#7450a5;
   background:#efe6fa;
 }
+.site-shell[data-booking-step="4"] .preference-icon--booster{
+  color:#b95f18;
+  background:#fff0df;
+}
+.site-shell[data-booking-step="4"] .preference-icon--silence{
+  color:#2f6570;
+  background:#e2f3f3;
+}
 .site-shell[data-booking-step="4"] .preference-copy{
   min-width:0;
 }

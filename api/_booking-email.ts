@@ -1,5 +1,5 @@
-import type { OrderRecord } from "./_orders.js";
-import { BUSINESS_TIME_ZONE, VEHICLES } from "../src/domain/booking.js";
+import type { OrderRecord } from "./_orders.ts";
+import { BUSINESS_TIME_ZONE, VEHICLES } from "../src/domain/booking.ts";
 
 export type BookingEmail = Readonly<{
   subject: string;
@@ -84,6 +84,14 @@ function preferenceRows(order: OrderRecord): EmailRow[] {
 
   if (preferences.driverComment.enabled && preferences.driverComment.text.trim()) {
     rows.push({ label: "Comment for driver", value: preferences.driverComment.text });
+  }
+
+  if (preferences.boosterSeat?.enabled) {
+    rows.push({ label: "Booster seat (15–35 kg)", value: "Taip" });
+  }
+
+  if (preferences.silenceService?.enabled) {
+    rows.push({ label: "Silence service", value: "Taip" });
   }
 
   return rows;
