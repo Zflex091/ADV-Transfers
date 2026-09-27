@@ -1,8 +1,15 @@
 {
   "framework": "vite",
   "functions": {
-    "api/stripe-webhook.ts": { "maxDuration": 60 },
-    "api/retry-booking-emails.ts": { "maxDuration": 60 }
+    "api/booking-status.ts": { "includeFiles": "src/domain/**" },
+    "api/create-checkout-session.ts": { "includeFiles": "src/domain/**" },
+    "api/place-details.ts": { "includeFiles": "src/domain/**" },
+    "api/places.ts": { "includeFiles": "src/domain/**" },
+    "api/quote.ts": { "includeFiles": "src/domain/**" },
+    "api/reservations.ts": { "includeFiles": "src/domain/**" },
+    "api/retry-booking-emails.ts": { "maxDuration": 60, "includeFiles": "src/domain/**" },
+    "api/route.ts": { "includeFiles": "src/domain/**" },
+    "api/stripe-webhook.ts": { "maxDuration": 60, "includeFiles": "src/domain/**" }
   },
   "crons": [
     { "path": "/api/retry-booking-emails", "schedule": "0 5 * * *" }
