@@ -255,7 +255,7 @@ const translations = {
 
     payDriver: "Mokėti automobilyje",
     payDriverText:
-      "Dabar 0,50 € avansas, likusi suma vairuotojui",
+      "Visa suma mokama automobilyje grynaisiais arba kortele",
 
     payStripe: "Apmokėti visą sumą internetu",
     payStripeText:
@@ -368,7 +368,7 @@ const translations = {
 
     payDriver: "Pay in the vehicle",
     payDriverText:
-      "€0.50 advance now, the balance to the driver",
+      "Pay the full fare in the vehicle by cash or card",
 
     payStripe: "Pay the full fare online",
     payStripeText:
@@ -1058,19 +1058,24 @@ export default function App() {
         },
         body: JSON.stringify({ ...normalizedBooking, clientRequestId }),
       });
+      const submitFallback = booking.paymentMethod === "driver"
+        ? t.reservationError
+        : t.stripeError;
       const data: {
-        url?: string;
+        bookingReceived?: boolean;
+        url?: string | null;
         orderId?: string;
         statusToken?: string;
+        bookingCode?: string;
         totalCents?: number;
         dueNowCents?: number;
         balanceCents?: number;
         error?: string;
-      } = await parseApiJson(response, t.stripeError);
-      if (!response.ok || !data.url || !data.orderId || !data.statusToken) {
-        throw new Error(apiErrorText(data.error, t.stripeError));
+      } = await parseApiJson(response, submitFallback);
+      if (!response.ok || !data.orderId || !data.statusToken) {
+        throw new Error(apiErrorText(data.error, submitFallback));
       }
-      if (!paymentPlan) throw new Error(t.stripeError);
+      if (!paymentPlan) throw new Error(submitFallback);
       if (
         data.totalCents !== paymentPlan.totalCents ||
         data.dueNowCents !== paymentPlan.amountDueNowCents ||
@@ -1080,6 +1085,25 @@ export default function App() {
           ? "Mokėjimo suma pasikeitė. Atnaujinkite kelionės kainą."
           : "The payment amount changed. Refresh your trip fare.");
       }
+
+      if (booking.paymentMethod === "driver") {
+        if (!data.bookingReceived || !data.bookingCode || data.url) {
+          throw new Error(t.reservationError);
+        }
+        setCheckoutStatus({
+          status: "pending",
+          bookingCode: data.bookingCode,
+          paymentMethod: "pay-in-vehicle",
+          totalCents: data.totalCents,
+          paidCents: 0,
+          balanceCents: data.balanceCents,
+        });
+        setDone(data.bookingCode);
+        sessionStorage.removeItem(checkoutRequestKey);
+        return;
+      }
+
+      if (!data.url) throw new Error(t.stripeError);
       const checkoutUrl = new URL(data.url);
       if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
         throw new Error(t.stripeError);
@@ -1226,8 +1250,14 @@ export default function App() {
                   <Check />
                 </div>
 
-                <h2>{t.reservationAccepted}</h2>
-                <p>{t.bookingNumber}</p>
+                <h2>{booking.paymentMethod === "driver"
+                  ? (language === "lt" ? "Rezervacijos užklausa gauta" : "Booking request received")
+                  : t.reservationAccepted}</h2>
+                <p>{booking.paymentMethod === "driver"
+                  ? (language === "lt"
+                    ? "Internetinio mokėjimo nereikia. Susisieksime su jumis ir patvirtinsime rezervaciją."
+                    : "No online payment is required. We will contact you to confirm the booking.")
+                  : t.bookingNumber}</p>
                 <strong>{done}</strong>
 
                 {checkoutStatus?.status === "paid" &&
@@ -1791,20 +1821,26 @@ export default function App() {
                 {paymentPlan && (
                   <div className="payment-breakdown" aria-label={language === "lt" ? "Mokėjimo suvestinė" : "Payment breakdown"}>
                     <div><span>{language === "lt" ? "Bendra kelionės kaina" : "Total trip fare"}</span><strong>{money(paymentPlan.totalCents, language)}</strong></div>
-                    <div><span>{language === "lt" ? "Dabar per „Stripe“" : "Pay now through Stripe"}</span><strong>{money(paymentPlan.amountDueNowCents, language)}</strong></div>
-                    <div><span>{language === "lt" ? "Likutis automobilyje" : "Balance in the vehicle"}</span><strong>{money(paymentPlan.remainingAfterSuccessfulPaymentCents, language)}</strong></div>
+                    {booking.paymentMethod === "driver" ? (
+                      <div><span>{language === "lt" ? "Mokėti automobilyje" : "Pay in the vehicle"}</span><strong>{money(paymentPlan.totalCents, language)}</strong></div>
+                    ) : (<>
+                      <div><span>{language === "lt" ? "Dabar per „Stripe“" : "Pay now through Stripe"}</span><strong>{money(paymentPlan.amountDueNowCents, language)}</strong></div>
+                      <div><span>{language === "lt" ? "Likutis automobilyje" : "Balance in the vehicle"}</span><strong>{money(paymentPlan.remainingAfterSuccessfulPaymentCents, language)}</strong></div>
+                    </>)}
                   </div>
                 )}
 
                 {booking.paymentMethod === "driver" && (
                   <p className="payment-advance-explanation">{language === "lt"
-                    ? "Siekiant apsaugoti vairuotojus nuo netikrų rezervacijų, prieš patvirtinant užsakymą taikomas 0,50 € išankstinis mokėjimas. Ši suma įskaitoma į kelionės kainą; likusią sumą galėsite sumokėti automobilyje grynaisiais arba kortele. Avansas sumažina netikrų užsakymų riziką, tačiau negarantuoja tapatybės ar atvykimo."
-                    : "To help protect drivers from false bookings, a €0.50 advance is required before confirmation. It is credited toward your trip fare; pay the balance in the vehicle by cash or card. The advance reduces false bookings but does not verify identity or guarantee arrival."}</p>
+                    ? "Internetinio avanso nėra. Visą sumą sumokėsite automobilyje. Po rezervacijos galime susisiekti telefonu arba el. paštu, kad patvirtintume užsakymą."
+                    : "There is no online advance. Pay the full fare in the vehicle. We may contact you by phone or email to verify the booking."}</p>
                 )}
 
                 <div className="secure-note">
-                  <LockKeyhole />
-                  {t.securePayment}
+                  {booking.paymentMethod === "driver" ? <Check /> : <LockKeyhole />}
+                  {booking.paymentMethod === "driver"
+                    ? (language === "lt" ? "Internetinis mokėjimas nereikalingas." : "No online payment is required.")
+                    : t.securePayment}
                 </div>
 
                 {error && (
@@ -1824,7 +1860,7 @@ export default function App() {
                     </>
                   ) : (
                     <>
-                      {t.secureCheckout}
+                      {booking.paymentMethod === "driver" ? t.confirmBooking : t.secureCheckout}
                       <ArrowRight />
                     </>
                   )}

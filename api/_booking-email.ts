@@ -1,5 +1,5 @@
-import type { OrderRecord } from "./_orders.ts";
-import { BUSINESS_TIME_ZONE, VEHICLES } from "../src/domain/booking.ts";
+import type { OrderRecord } from "./_orders.js";
+import { BUSINESS_TIME_ZONE, VEHICLES } from "../src/domain/booking.js";
 
 export type BookingEmail = Readonly<{
   subject: string;
@@ -97,10 +97,13 @@ function preferenceRows(order: OrderRecord): EmailRow[] {
   return rows;
 }
 
-/** Render only a Stripe-confirmed order; sending and deduplication happen elsewhere. */
+/** Render either a Stripe-confirmed order or a pay-in-vehicle booking request. */
 export function renderOwnerBookingEmail(order: OrderRecord): BookingEmail {
-  if (order.status !== "paid") {
-    throw new Error("Patvirtinimo laišką galima rengti tik apmokėtam užsakymui.");
+  const payInVehicle = order.paymentMethod === "pay-in-vehicle";
+  const eligible = order.status === "paid" ||
+    (payInVehicle && order.status === "pending" && order.dueNowCents === 0);
+  if (!eligible) {
+    throw new Error("Užsakymo laiško šiai būsenai rengti negalima.");
   }
 
   const draft = order.bookingSnapshot;
@@ -112,7 +115,7 @@ export function renderOwnerBookingEmail(order: OrderRecord): BookingEmail {
       rows: [
         { label: "Užsakymo numeris", value: order.bookingCode },
         { label: "Unikalus ID", value: order.id },
-        { label: "Būsena", value: "Patvirtinta · mokėjimas gautas" },
+        { label: "Būsena", value: payInVehicle ? "Gauta · laukia rankinio patvirtinimo" : "Patvirtinta · mokėjimas gautas" },
         { label: "Pateikta", value: createdAtInVilnius(order.createdAt) },
       ],
     },
@@ -146,12 +149,12 @@ export function renderOwnerBookingEmail(order: OrderRecord): BookingEmail {
           ? [{ label: "Minimalios kainos pritaikymas", value: money(draft.pricing.minimumAdjustmentCents) }]
           : []),
         { label: "Galutinė kelionės kaina", value: money(order.totalCents) },
-        { label: "Mokėjimo būdas", value: order.paymentMethod === "pay-in-vehicle"
-          ? "Avansas per Stripe, likutis automobilyje"
+        { label: "Mokėjimo būdas", value: payInVehicle
+          ? "Mokėjimas automobilyje (grynaisiais arba kortele)"
           : "Visa suma internetu per Stripe" },
-        { label: "Iš anksto sumokėta per Stripe", value: money(order.paidCents) },
+        { label: "Sumokėta internetu", value: money(order.paidCents) },
         { label: "Mokėti automobilyje", value: money(order.balanceCents) },
-        { label: "Stripe mokėjimo būsena", value: "Apmokėta" },
+        { label: "Stripe mokėjimo būsena", value: payInVehicle ? "Netaikoma" : "Apmokėta" },
         ...(order.stripeSessionId
           ? [{ label: "Stripe Checkout Session ID", value: order.stripeSessionId }]
           : []),
@@ -163,9 +166,14 @@ export function renderOwnerBookingEmail(order: OrderRecord): BookingEmail {
     ...(preferences.length ? [{ heading: "Papildomi pageidavimai", rows: preferences }] : []),
   ];
 
-  const subject = `ADV užsakymas ${order.bookingCode.replace(/[^A-Za-z0-9-]/g, "")} – patvirtintas`;
+  const safeBookingCode = order.bookingCode.replace(/[^A-Za-z0-9-]/g, "");
+  const subject = payInVehicle
+    ? `ADV rezervacijos užklausa ${safeBookingCode} – mokėjimas automobilyje`
+    : `ADV užsakymas ${safeBookingCode} – patvirtintas`;
   const text = [
-    `Nauja patvirtinta ADV Transfers rezervacija: ${order.bookingCode}`,
+    payInVehicle
+      ? `Nauja ADV Transfers rezervacijos užklausa: ${order.bookingCode}`
+      : `Nauja patvirtinta ADV Transfers rezervacija: ${order.bookingCode}`,
     ...sections.flatMap(({ heading, rows }) => [
       "",
       heading.toUpperCase(),
@@ -187,11 +195,11 @@ export function renderOwnerBookingEmail(order: OrderRecord): BookingEmail {
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #d9e0d9;border-collapse:separate;">
     <tr><td style="padding:27px 28px 22px;background:#183a32;color:#fff;">
       <div style="font:700 12px Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#d3e6db;">ADV Transfers</div>
-      <div style="margin-top:9px;font:700 24px/1.25 Arial,sans-serif;">Nauja patvirtinta rezervacija</div>
+      <div style="margin-top:9px;font:700 24px/1.25 Arial,sans-serif;">${payInVehicle ? "Nauja rezervacijos užklausa" : "Nauja patvirtinta rezervacija"}</div>
       <div style="margin-top:8px;font:14px Arial,sans-serif;color:#e3f0e8;overflow-wrap:anywhere;">${escapeHtml(order.bookingCode)}</div>
     </td></tr>
     ${htmlSections}
-    <tr><td style="padding:22px 28px 28px;font:12px/1.5 Arial,sans-serif;color:#66766f;">Šis laiškas parengtas po patvirtinto Stripe mokėjimo.</td></tr>
+    <tr><td style="padding:22px 28px 28px;font:12px/1.5 Arial,sans-serif;color:#66766f;">${payInVehicle ? "Klientas pasirinko mokėjimą automobilyje. Susisiekite su klientu ir rankiniu būdu patvirtinkite rezervaciją." : "Šis laiškas parengtas po patvirtinto Stripe mokėjimo."}</td></tr>
   </table>
 </body></html>`;
 

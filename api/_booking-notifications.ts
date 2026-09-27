@@ -50,17 +50,29 @@ function retryMinutes(attempts: number): number {
   return Math.min(60, 2 ** Math.min(6, Math.max(0, attempts - 1)));
 }
 
+function ownerNotificationEligible(order: OrderRecord): boolean {
+  return order.status === "paid" ||
+    (order.status === "pending" &&
+      order.paymentMethod === "pay-in-vehicle" &&
+      order.dueNowCents === 0);
+}
+
 /**
- * Persist the notification before attempting SMTP. Only a database-confirmed
- * paid order can enter the queue; repeated webhook deliveries reuse its row.
+ * Persist the owner notification before attempting SMTP. Online bookings are
+ * eligible after Stripe marks them paid. Pay-in-vehicle requests are eligible
+ * immediately so the owner can manually verify the customer.
  */
 export async function queueOwnerBookingEmail(orderId: string): Promise<boolean> {
   const order = await getOrderById(orderId);
-  if (!order || order.status !== "paid") return false;
+  if (!order || !ownerNotificationEligible(order)) return false;
   await database().query(
     `INSERT INTO adv_booking_email_outbox (order_id)
      SELECT id FROM adv_booking_orders
-     WHERE id = $1 AND status = 'paid'
+     WHERE id = $1
+       AND (
+         status = 'paid'
+         OR (status = 'pending' AND payment_method = 'pay-in-vehicle' AND due_now_cents = 0)
+       )
      ON CONFLICT (order_id) DO NOTHING`,
     [orderId],
   );
@@ -81,7 +93,11 @@ async function claimEmail(orderId: string): Promise<ClaimRow | null> {
        )
        AND EXISTS (
          SELECT 1 FROM adv_booking_orders
-         WHERE id = $1 AND status = 'paid'
+         WHERE id = $1
+           AND (
+             status = 'paid'
+             OR (status = 'pending' AND payment_method = 'pay-in-vehicle' AND due_now_cents = 0)
+           )
        )
      RETURNING order_id, attempts, lease_token`,
     [orderId, leaseToken],
@@ -177,7 +193,7 @@ export async function sendOwnerBookingEmail(
   }
 
   const order = await getOrderById(orderId);
-  if (!order || order.status !== "paid") {
+  if (!order || !ownerNotificationEligible(order)) {
     await recordFailure(claim, "render-failed");
     return "not-eligible";
   }
@@ -198,7 +214,7 @@ export async function sendOwnerBookingEmail(
   return "sent";
 }
 
-/** Reconcile paid orders whose initial webhook was interrupted, then retry. */
+/** Reconcile eligible owner notifications, then retry failed deliveries. */
 export async function processPendingBookingEmails(
   requestedLimit = 2,
 ): Promise<{ sent: number; failed: number; skipped: number }> {
@@ -206,7 +222,11 @@ export async function processPendingBookingEmails(
   await database().query(
     `INSERT INTO adv_booking_email_outbox (order_id)
      SELECT booking.id FROM adv_booking_orders AS booking
-     WHERE booking.status = 'paid' AND booking.confirmation_email_sent_at IS NULL
+     WHERE (
+       booking.status = 'paid'
+       OR (booking.status = 'pending' AND booking.payment_method = 'pay-in-vehicle' AND booking.due_now_cents = 0)
+     )
+       AND booking.confirmation_email_sent_at IS NULL
        AND NOT EXISTS (
          SELECT 1 FROM adv_booking_email_outbox AS queued
          WHERE queued.order_id = booking.id
@@ -220,7 +240,11 @@ export async function processPendingBookingEmails(
     `SELECT outbox.order_id
      FROM adv_booking_email_outbox AS outbox
      JOIN adv_booking_orders AS booking ON booking.id = outbox.order_id
-     WHERE booking.status = 'paid' AND outbox.next_attempt_at <= NOW()
+     WHERE (
+       booking.status = 'paid'
+       OR (booking.status = 'pending' AND booking.payment_method = 'pay-in-vehicle' AND booking.due_now_cents = 0)
+     )
+       AND outbox.next_attempt_at <= NOW()
        AND (
          outbox.state = 'pending'
          OR (outbox.state = 'sending' AND outbox.lease_expires_at < NOW())

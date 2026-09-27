@@ -2,7 +2,7 @@ export const RESERVATION_SCHEMA_VERSION = 2 as const;
 export const BUSINESS_TIME_ZONE = "Europe/Vilnius" as const;
 export const CURRENCY = "EUR" as const;
 export const MINIMUM_LEAD_TIME_MINUTES = 30;
-export const DRIVER_ADVANCE_CENTS = 50;
+export const DRIVER_ADVANCE_CENTS = 0;
 
 export type VehicleId = "economy" | "executive-minivan";
 
@@ -181,7 +181,7 @@ export function calculatePaymentPlan(
   const amountDueNowCents =
     method === "online-full"
       ? totalCents
-      : Math.min(DRIVER_ADVANCE_CENTS, totalCents);
+      : 0;
 
   return {
     method,
