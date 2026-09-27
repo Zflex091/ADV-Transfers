@@ -11,6 +11,7 @@ import {
 } from "./_mapbox.js";
 
 const AUTOCOMPLETE_URL = "https://api.mapbox.com/search/searchbox/v1/suggest";
+const FORWARD_URL = "https://api.mapbox.com/search/searchbox/v1/forward";
 const KAUNAS_PROXIMITY = "23.9036,54.8985";
 const MAX_RESULTS = 6;
 
@@ -30,6 +31,21 @@ type MapboxAutocompleteResponse = {
   suggestions?: MapboxSuggestion[];
 };
 
+type MapboxFeatureProperties = MapboxSuggestion & {
+  coordinates?: {
+    latitude?: number;
+    longitude?: number;
+  };
+};
+
+type MapboxFeature = {
+  properties?: MapboxFeatureProperties;
+};
+
+type MapboxFeatureCollection = {
+  features?: MapboxFeature[];
+};
+
 export type PlaceSuggestion = {
   provider: "mapbox";
   providerPlaceId: string;
@@ -40,6 +56,19 @@ export type PlaceSuggestion = {
   featureType?: string;
   distanceMeters?: number;
 };
+
+const GENERIC_SEARCH_WORDS = new Set([
+  "hotel",
+  "hotelis",
+  "viesbutis",
+  "viesbuti",
+  "viesbucio",
+  "restaurant",
+  "restoranas",
+  "restorane",
+  "cafe",
+  "kavine",
+]);
 
 function suggestionLabel(suggestion: MapboxSuggestion) {
   const fullAddress = suggestion.full_address?.trim();
@@ -60,6 +89,37 @@ function normalizeSearchText(value: string) {
     .trim();
 }
 
+function meaningfulQuery(query: string) {
+  const words = normalizeSearchText(query)
+    .split(" ")
+    .filter(Boolean)
+    .filter((word) => !GENERIC_SEARCH_WORDS.has(word));
+
+  return words.join(" ") || normalizeSearchText(query);
+}
+
+function lodgingIntent(query: string) {
+  const normalized = ` ${normalizeSearchText(query)} `;
+  return (
+    normalized.includes(" hotel ") ||
+    normalized.includes(" hotelis ") ||
+    normalized.includes(" viesbutis ") ||
+    normalized.includes(" viesbuti ") ||
+    normalized.includes(" viesbucio ")
+  );
+}
+
+function restaurantIntent(query: string) {
+  const normalized = ` ${normalizeSearchText(query)} `;
+  return (
+    normalized.includes(" restaurant ") ||
+    normalized.includes(" restoranas ") ||
+    normalized.includes(" restorane ") ||
+    normalized.includes(" cafe ") ||
+    normalized.includes(" kavine ")
+  );
+}
+
 function featurePriority(featureType: string | undefined) {
   switch (featureType) {
     case "poi":
@@ -70,7 +130,7 @@ function featurePriority(featureType: string | undefined) {
       return 2;
     case "place":
     case "locality":
-      return 4;
+      return 5;
     default:
       return 3;
   }
@@ -78,32 +138,72 @@ function featurePriority(featureType: string | undefined) {
 
 function relevanceScore(suggestion: PlaceSuggestion, query: string) {
   const normalizedQuery = normalizeSearchText(query);
+  const meaningful = meaningfulQuery(query);
   const normalizedMain = normalizeSearchText(suggestion.mainText);
   const normalizedLabel = normalizeSearchText(suggestion.label);
 
-  let score = featurePriority(suggestion.featureType) * 10;
+  let score = featurePriority(suggestion.featureType) * 12;
 
-  if (normalizedQuery && normalizedMain === normalizedQuery) {
-    score -= 18;
+  // Match the actual business/place name, not generic words such as "hotel".
+  if (meaningful && normalizedMain === meaningful) {
+    score -= 36;
   } else if (
-    normalizedQuery &&
-    (normalizedMain.startsWith(normalizedQuery) ||
-      normalizedQuery.startsWith(normalizedMain))
+    meaningful &&
+    (normalizedMain.includes(meaningful) || normalizedLabel.includes(meaningful))
   ) {
-    score -= 12;
-  } else if (normalizedQuery && normalizedLabel.includes(normalizedQuery)) {
-    score -= 7;
+    score -= 28;
   }
 
-  // Proximity should only break close ties; exact text/type relevance matters more.
+  if (normalizedQuery && normalizedMain === normalizedQuery) {
+    score -= 16;
+  } else if (normalizedQuery && normalizedLabel.includes(normalizedQuery)) {
+    score -= 8;
+  }
+
+  // If the user clearly asked for a hotel/restaurant, POIs should decisively beat
+  // villages/localities that merely share a similar name.
+  if ((lodgingIntent(query) || restaurantIntent(query)) && suggestion.featureType === "poi") {
+    score -= 18;
+  }
+
+  // Proximity is only a tie breaker; exact name/type relevance matters more.
   if (
     typeof suggestion.distanceMeters === "number" &&
     Number.isFinite(suggestion.distanceMeters)
   ) {
-    score += Math.min(4, Math.max(0, suggestion.distanceMeters) / 25_000);
+    score += Math.min(5, Math.max(0, suggestion.distanceMeters) / 20_000);
   }
 
   return score;
+}
+
+function toPlaceSuggestion(suggestion: MapboxSuggestion): PlaceSuggestion | null {
+  const providerPlaceId = suggestion.mapbox_id?.trim() ?? "";
+  const label = suggestionLabel(suggestion);
+  const mainText = (suggestion.name_preferred || suggestion.name || label).trim();
+  const secondaryText = suggestion.place_formatted?.trim() ?? "";
+
+  if (!providerPlaceId || !label || !mainText) {
+    return null;
+  }
+
+  const types = [suggestion.feature_type, ...(suggestion.poi_category ?? [])].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
+
+  return {
+    provider: "mapbox",
+    providerPlaceId,
+    label,
+    mainText,
+    secondaryText,
+    types,
+    featureType: suggestion.feature_type,
+    distanceMeters:
+      typeof suggestion.distance === "number" && Number.isFinite(suggestion.distance)
+        ? suggestion.distance
+        : undefined,
+  };
 }
 
 export function mapAutocompleteResponse(
@@ -114,37 +214,20 @@ export function mapAutocompleteResponse(
   }
 
   return data.suggestions.flatMap((suggestion) => {
-    const providerPlaceId = suggestion.mapbox_id?.trim() ?? "";
-    const label = suggestionLabel(suggestion);
-    const mainText = (suggestion.name_preferred || suggestion.name || label).trim();
-    const secondaryText = suggestion.place_formatted?.trim() ?? "";
+    const mapped = toPlaceSuggestion(suggestion);
+    return mapped ? [mapped] : [];
+  });
+}
 
-    if (!providerPlaceId || !label || !mainText) {
-      return [];
-    }
+function mapFeatureCollection(data: MapboxFeatureCollection): PlaceSuggestion[] {
+  if (!Array.isArray(data.features)) {
+    return [];
+  }
 
-    const types = [suggestion.feature_type, ...(suggestion.poi_category ?? [])]
-      .filter(
-        (value): value is string =>
-          typeof value === "string" && value.length > 0,
-      );
-
-    return [
-      {
-        provider: "mapbox" as const,
-        providerPlaceId,
-        label,
-        mainText,
-        secondaryText,
-        types,
-        featureType: suggestion.feature_type,
-        distanceMeters:
-          typeof suggestion.distance === "number" &&
-          Number.isFinite(suggestion.distance)
-            ? suggestion.distance
-            : undefined,
-      },
-    ];
+  return data.features.flatMap((feature) => {
+    if (!feature.properties) return [];
+    const mapped = toPlaceSuggestion(feature.properties);
+    return mapped ? [mapped] : [];
   });
 }
 
@@ -155,6 +238,7 @@ async function fetchSuggestions(
   accessToken: string,
   types: string,
   limit: number,
+  poiCategory?: string,
 ) {
   const url = new URL(AUTOCOMPLETE_URL);
   url.searchParams.set("q", query);
@@ -165,19 +249,43 @@ async function fetchSuggestions(
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("proximity", KAUNAS_PROXIMITY);
   url.searchParams.set("types", types);
+  if (poiCategory) {
+    url.searchParams.set("poi_category", poiCategory);
+  }
 
   const data = await fetchMapboxJson<MapboxAutocompleteResponse>(url.toString());
   return mapAutocompleteResponse(data);
 }
 
+async function fetchForward(
+  query: string,
+  language: "lt" | "en",
+  accessToken: string,
+  poiCategory?: string,
+) {
+  const url = new URL(FORWARD_URL);
+  url.searchParams.set("q", query);
+  url.searchParams.set("access_token", accessToken);
+  url.searchParams.set("language", language);
+  url.searchParams.set("country", "LT");
+  url.searchParams.set("limit", "10");
+  url.searchParams.set("proximity", KAUNAS_PROXIMITY);
+  url.searchParams.set("types", "poi,address");
+  if (poiCategory) {
+    url.searchParams.set("poi_category", poiCategory);
+  }
+
+  const data = await fetchMapboxJson<MapboxFeatureCollection>(url.toString());
+  return mapFeatureCollection(data);
+}
+
 function mergeAndRankSuggestions(
-  primary: PlaceSuggestion[],
-  fallback: PlaceSuggestion[],
+  groups: PlaceSuggestion[][],
   query: string,
 ) {
   const unique = new Map<string, PlaceSuggestion>();
 
-  for (const suggestion of [...primary, ...fallback]) {
+  for (const suggestion of groups.flat()) {
     if (!unique.has(suggestion.providerPlaceId)) {
       unique.set(suggestion.providerPlaceId, suggestion);
     }
@@ -255,8 +363,14 @@ export default async function handler(
   const language = normalizeLanguage(getQueryValue(req.query.language));
 
   try {
-    // First pass intentionally excludes cities/localities so hotels, airports,
-    // POIs and exact addresses do not get pushed out by similarly named towns.
+    const cleanQuery = meaningfulQuery(query);
+    const category = lodgingIntent(query)
+      ? "lodging"
+      : restaurantIntent(query)
+        ? "restaurant"
+        : undefined;
+
+    // 1) Normal autocomplete for useful pickup/drop-off result types.
     const primary = await fetchSuggestions(
       query,
       sessionToken,
@@ -266,21 +380,55 @@ export default async function handler(
       10,
     );
 
-    // Only ask for broader administrative results when the useful pickup/dropoff
-    // result set is too small. This keeps city/village names as a fallback.
-    const fallback =
-      primary.length >= MAX_RESULTS
-        ? []
-        : await fetchSuggestions(
-            query,
-            sessionToken,
-            language,
-            accessToken,
-            "place,locality",
-            6,
-          );
+    // 2) For business/category queries (e.g. "Daugirdas hotel"), search the
+    // business name without the generic category word and restrict to that POI
+    // category. This prevents similarly named villages from taking over.
+    const categorySuggestions = category
+      ? await fetchSuggestions(
+          cleanQuery,
+          sessionToken,
+          language,
+          accessToken,
+          "poi",
+          10,
+          category,
+        )
+      : [];
 
-    return res.status(200).json(mergeAndRankSuggestions(primary, fallback, query));
+    // 3) Forward search is better for a complete business/place phrase than
+    // autocomplete in some edge cases. Appending Kaunas strengthens the city
+    // context without changing the user's visible query.
+    const forward = await fetchForward(
+      `${cleanQuery} Kaunas`,
+      language,
+      accessToken,
+      category,
+    );
+
+    const useful = mergeAndRankSuggestions(
+      [primary, categorySuggestions, forward],
+      query,
+    );
+
+    // Only show city/locality fallbacks if we still do not have enough useful
+    // address/POI candidates. For explicit hotel/restaurant searches, never let
+    // same-name villages crowd out a business result.
+    if (useful.length >= MAX_RESULTS || (category && useful.length > 0)) {
+      return res.status(200).json(useful);
+    }
+
+    const fallback = await fetchSuggestions(
+      query,
+      sessionToken,
+      language,
+      accessToken,
+      "place,locality",
+      6,
+    );
+
+    return res
+      .status(200)
+      .json(mergeAndRankSuggestions([primary, categorySuggestions, forward, fallback], query));
   } catch (error) {
     const upstreamStatus =
       error instanceof MapboxUpstreamError ? error.status : "unknown";
