@@ -77,18 +77,23 @@ test("Geoapify autocomplete maps addresses and rejects incomplete suggestions", 
   const result = mapAutocompleteResponse({ results: [
     {
       place_id: "address-1",
+      lat: 54.896,
+      lon: 23.887,
       formatted: "Rotušės a. 15, Kaunas, Lithuania",
       address_line1: "Rotušės a. 15",
       address_line2: "Kaunas, Lithuania",
       result_type: "building",
     },
     { formatted: "Missing ID" },
+    { place_id: "missing-coordinates", formatted: "Missing coordinates" },
   ] });
   assert.equal(result.length, 1);
   assert.deepEqual(result[0], {
     provider: "geoapify",
     providerPlaceId: "address-1",
     label: "Rotušės a. 15, Kaunas, Lithuania",
+    latitude: 54.896,
+    longitude: 23.887,
     mainText: "Rotušės a. 15",
     secondaryText: "Kaunas, Lithuania",
     types: ["building"],
@@ -98,7 +103,10 @@ test("Geoapify autocomplete maps addresses and rejects incomplete suggestions", 
 });
 
 test("Geoapify Places maps named hotels ahead of a same-name locality", () => {
-  const hotel = mapPlacesResponse({ features: [{ properties: {
+  const hotel = mapPlacesResponse({ features: [{ geometry: {
+    type: "Point",
+    coordinates: [23.88, 54.89],
+  }, properties: {
     place_id: "hotel-1",
     name: "Daugirdas",
     formatted: "T. Daugirdo g. 4, Kaunas",
@@ -107,6 +115,8 @@ test("Geoapify Places maps named hotels ahead of a same-name locality", () => {
   } }] });
   const locality = mapAutocompleteResponse({ results: [{
     place_id: "city-1",
+    lat: 55.1,
+    lon: 23.9,
     formatted: "Daugirdai, Lithuania",
     address_line1: "Daugirdai",
     result_type: "city",
@@ -116,17 +126,22 @@ test("Geoapify Places maps named hotels ahead of a same-name locality", () => {
   assert.equal(ranked[0]?.label, "Daugirdas, T. Daugirdo g. 4, Kaunas");
 });
 
-test("places handler calls Autocomplete and hotel Places without changing the UI response", async (t) => {
+test("places handler calls Autocomplete and hotel Places and signs the suggestions", async (t) => {
   env(t, "GEOAPIFY_API_KEY", "server-key");
+  env(t, "ROUTE_TOKEN_SECRET", "test-signing-key");
   const urls = mockFetch(t, (url) => url.pathname.includes("/geocode/autocomplete")
     ? { results: [{
         place_id: "address-1",
+        lat: 54.895,
+        lon: 23.883,
         formatted: "T. Daugirdo g. 4, Kaunas",
         address_line1: "T. Daugirdo g. 4",
         result_type: "building",
       }] }
     : { features: [{ properties: {
         place_id: "hotel-1",
+        lat: 54.8951,
+        lon: 23.8831,
         name: "Daugirdas",
         formatted: "T. Daugirdo g. 4, Kaunas",
         categories: ["accommodation.hotel"],
@@ -136,6 +151,8 @@ test("places handler calls Autocomplete and hotel Places without changing the UI
   assert.equal(captured.status, 200);
   assert.equal(captured.body[0].providerPlaceId, "hotel-1");
   assert.equal(captured.body[0].provider, "geoapify");
+  assert.equal(verifyVerifiedPlaceToken(captured.body[0].selectionToken)?.providerPlaceId, "hotel-1");
+  assert.equal(verifyVerifiedPlaceToken(captured.body[1].selectionToken)?.providerPlaceId, "address-1");
   assert.equal(urls.length, 2);
   const autocompleteUrl = urls.find((url) => url.pathname.includes("/geocode/autocomplete"));
   const placesUrl = urls.find((url) => url.pathname.includes("/v2/places"));
@@ -185,6 +202,57 @@ test("place details handler resolves the ID at Geoapify and signs the result", a
   assert.equal(urls[0].searchParams.get("features"), "details");
   assert.equal(captured.body.provider, "geoapify");
   assert.equal(verifyVerifiedPlaceToken(captured.body.placeToken)?.providerPlaceId, "selected-1");
+});
+
+test("airport selection uses signed Autocomplete coordinates without fetching Place Details", async (t) => {
+  env(t, "GEOAPIFY_API_KEY", "server-key");
+  env(t, "ROUTE_TOKEN_SECRET", "test-signing-key");
+  const urls = mockFetch(t, (url) => url.pathname.includes("/geocode/autocomplete")
+    ? { results: [{
+        place_id: "airport-1",
+        name: "Kauno oro uostas",
+        formatted: "Kauno oro uostas, Lithuania",
+        result_type: "amenity",
+        lat: 54.9639,
+        lon: 24.0848,
+      }] }
+    : { features: [] });
+
+  const searched = response();
+  await placesHandler(request("GET", {
+    q: "Kauno oro uostas",
+    sessionToken: "safe-session",
+  }), searched.res);
+  assert.equal(searched.captured.status, 200);
+  assert.equal(searched.captured.body.length, 1);
+  const suggestion = searched.captured.body[0];
+  assert.equal(verifyVerifiedPlaceToken(suggestion.selectionToken)?.latitude, 54.9639);
+
+  const selected = response();
+  await placeDetailsHandler(request("POST", {}, {
+    placeId: suggestion.providerPlaceId,
+    sessionToken: "safe-session",
+    selectionToken: suggestion.selectionToken,
+  }), selected.res);
+  assert.equal(selected.captured.status, 200);
+  assert.deepEqual(selected.captured.body, {
+    provider: "geoapify",
+    providerPlaceId: "airport-1",
+    label: "Kauno oro uostas, Lithuania",
+    latitude: 54.9639,
+    longitude: 24.0848,
+    placeToken: selected.captured.body.placeToken,
+  });
+  assert.equal(verifyVerifiedPlaceToken(selected.captured.body.placeToken)?.providerPlaceId, "airport-1");
+  assert.equal(urls.some((url) => url.pathname.includes("/place-details")), false);
+
+  const forged = response();
+  await placeDetailsHandler(request("POST", {}, {
+    placeId: suggestion.providerPlaceId,
+    sessionToken: "safe-session",
+    selectionToken: `${suggestion.selectionToken}x`,
+  }), forged.res);
+  assert.equal(forged.captured.status, 400);
 });
 
 test("routing parses Geoapify polyline6, meters and seconds", () => {

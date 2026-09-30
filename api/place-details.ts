@@ -11,7 +11,7 @@ import {
   isValidSessionToken,
   normalizeLanguage,
 } from "./_geoapify.js";
-import { createVerifiedPlaceToken } from "./_place-token.js";
+import { createVerifiedPlaceToken, verifyVerifiedPlaceToken } from "./_place-token.js";
 
 type GeoapifyDetailsFeature = {
   geometry?: { type?: string; coordinates?: unknown };
@@ -67,13 +67,21 @@ export function mapPlaceDetails(data: GeoapifyDetailsResponse, requestedPlaceId:
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store");
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
-    return res.status(405).json({ error: "Leidžiamos tik GET užklausos." });
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return res.status(405).json({ error: "Leidžiamos tik GET ir POST užklausos." });
   }
 
-  const placeId = getQueryValue(req.query.placeId).trim();
-  const sessionToken = getQueryValue(req.query.sessionToken).trim();
+  const isSignedSelection = req.method === "POST";
+  const body = isSignedSelection && typeof req.body === "object" && req.body !== null && !Array.isArray(req.body)
+    ? req.body as Record<string, unknown>
+    : {};
+  const placeId = isSignedSelection
+    ? typeof body.placeId === "string" ? body.placeId.trim() : ""
+    : getQueryValue(req.query.placeId).trim();
+  const sessionToken = isSignedSelection
+    ? typeof body.sessionToken === "string" ? body.sessionToken.trim() : ""
+    : getQueryValue(req.query.sessionToken).trim();
   if (!isValidGeoapifyId(placeId) || !isValidSessionToken(sessionToken)) {
     return res.status(400).json({ error: "Neteisingai pasirinktas adresas." });
   }
@@ -85,6 +93,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!rateLimit.allowed) {
     res.setHeader("Retry-After", String(Math.max(1, Math.ceil((rateLimit.resetAt - Date.now()) / 1000))));
     return res.status(429).json({ error: "Per daug adreso tikslinimo užklausų. Palaukite minutę." });
+  }
+
+  if (isSignedSelection) {
+    // Search results already carry Geoapify coordinates signed by this server.
+    // Place Details can return polygon geometry without a usable point.
+    const verified = verifyVerifiedPlaceToken(body.selectionToken);
+    if (!verified || verified.provider !== "geoapify" || verified.providerPlaceId !== placeId) {
+      return res.status(400).json({ error: "Nepavyko patvirtinti pasirinkto adreso. Pasirinkite jį iš naujo." });
+    }
+    const placeToken = createVerifiedPlaceToken(verified);
+    if (!placeToken) {
+      return res.status(503).json({ error: "Adreso patvirtinimas laikinai nepasiekiamas. Bandykite dar kartą." });
+    }
+    return res.status(200).json({ ...verified, placeToken });
   }
 
   const apiKey = getGeoapifyServerKey();

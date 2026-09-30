@@ -27,6 +27,9 @@ type PlaceSuggestion = {
   provider: "geoapify";
   providerPlaceId: string;
   label: string;
+  latitude: number;
+  longitude: number;
+  selectionToken: string;
   mainText: string;
   secondaryText: string;
   types: string[];
@@ -181,7 +184,11 @@ export default function PlaceField({
           (suggestion) =>
             suggestion?.provider === "geoapify" &&
             typeof suggestion.providerPlaceId === "string" &&
-            typeof suggestion.label === "string",
+            typeof suggestion.label === "string" &&
+            typeof suggestion.selectionToken === "string" &&
+            suggestion.selectionToken.length > 0 &&
+            Number.isFinite(suggestion.latitude) &&
+            Number.isFinite(suggestion.longitude),
         );
         setSuggestions(validSuggestions);
         setActiveIndex(-1);
@@ -247,13 +254,14 @@ export default function PlaceField({
     setOpen(true);
 
     try {
-      const params = new URLSearchParams({
-        placeId: suggestion.providerPlaceId,
-        sessionToken: sessionTokenRef.current,
-        language,
-      });
-      const response = await fetch(`/api/place-details?${params}`, {
-        headers: { Accept: "application/json" },
+      const response = await fetch("/api/place-details", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          placeId: suggestion.providerPlaceId,
+          sessionToken: sessionTokenRef.current,
+          selectionToken: suggestion.selectionToken,
+        }),
         signal: controller.signal,
         cache: "no-store",
       });

@@ -6,10 +6,12 @@ import {
   fetchGeoapifyJson,
   getGeoapifyServerKey,
   getQueryValue,
+  isCoordinate,
   isValidGeoapifyId,
   isValidSessionToken,
   normalizeLanguage,
 } from "./_geoapify.js";
+import { createVerifiedPlaceToken } from "./_place-token.js";
 
 const AUTOCOMPLETE_URL = "https://api.geoapify.com/v1/geocode/autocomplete";
 const PLACES_URL = "https://api.geoapify.com/v2/places";
@@ -18,6 +20,8 @@ const MAX_RESULTS = 6;
 
 type GeoapifyAutocompleteResult = {
   place_id?: string;
+  lat?: number;
+  lon?: number;
   name?: string;
   formatted?: string;
   address_line1?: string;
@@ -32,8 +36,11 @@ type GeoapifyAutocompleteResponse = {
 };
 
 type GeoapifyPlacesFeature = {
+  geometry?: { type?: string; coordinates?: unknown };
   properties?: {
     place_id?: string;
+    lat?: number;
+    lon?: number;
     name?: string;
     formatted?: string;
     address_line1?: string;
@@ -51,6 +58,8 @@ export type PlaceSuggestion = {
   provider: "geoapify";
   providerPlaceId: string;
   label: string;
+  latitude: number;
+  longitude: number;
   mainText: string;
   secondaryText: string;
   types: string[];
@@ -105,7 +114,10 @@ function toAutocompleteSuggestion(result: GeoapifyAutocompleteResult): PlaceSugg
   const formatted = result.formatted?.trim() ?? "";
   const mainText = name || result.address_line1?.trim() || formatted;
   const label = labelWithName(name, formatted || mainText);
-  if (!isValidGeoapifyId(providerPlaceId) || !label || !mainText) return null;
+  if (
+    !isValidGeoapifyId(providerPlaceId) || !label || label.length > 500 || !mainText ||
+    !isCoordinate(result.lat, -90, 90) || !isCoordinate(result.lon, -180, 180)
+  ) return null;
 
   const secondaryText = result.address_line2?.trim() ||
     (formatted && formatted !== mainText ? formatted : "");
@@ -114,6 +126,8 @@ function toAutocompleteSuggestion(result: GeoapifyAutocompleteResult): PlaceSugg
     provider: "geoapify",
     providerPlaceId,
     label,
+    latitude: result.lat,
+    longitude: result.lon,
     mainText,
     secondaryText,
     types: [result.result_type, result.category].filter((value): value is string => !!value),
@@ -137,11 +151,21 @@ export function mapPlacesResponse(data: GeoapifyPlacesResponse): PlaceSuggestion
     const name = properties.name?.trim() || properties.address_line1?.trim() || "";
     const formatted = properties.formatted?.trim() ?? "";
     const label = labelWithName(name, formatted);
-    if (!isValidGeoapifyId(providerPlaceId) || !name || !label) return [];
+    const point = feature.geometry?.type === "Point" && Array.isArray(feature.geometry.coordinates)
+      ? feature.geometry.coordinates
+      : null;
+    const latitude = properties.lat ?? point?.[1];
+    const longitude = properties.lon ?? point?.[0];
+    if (
+      !isValidGeoapifyId(providerPlaceId) || !name || !label || label.length > 500 ||
+      !isCoordinate(latitude, -90, 90) || !isCoordinate(longitude, -180, 180)
+    ) return [];
     return [{
       provider: "geoapify" as const,
       providerPlaceId,
       label,
+      latitude,
+      longitude,
       mainText: name,
       secondaryText: properties.address_line2?.trim() || formatted,
       types: properties.categories ?? [],
@@ -268,7 +292,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fetchAutocomplete(query, language, apiKey),
       placesPromise,
     ]);
-    return res.status(200).json(mergeAndRankSuggestions([autocomplete, places], query));
+    const suggestions = mergeAndRankSuggestions([autocomplete, places], query);
+    const signed = suggestions.map((suggestion) => ({
+      ...suggestion,
+      selectionToken: createVerifiedPlaceToken({
+        provider: suggestion.provider,
+        providerPlaceId: suggestion.providerPlaceId,
+        label: suggestion.label,
+        latitude: suggestion.latitude,
+        longitude: suggestion.longitude,
+      }),
+    }));
+    if (signed.some((suggestion) => !suggestion.selectionToken)) {
+      return res.status(503).json({ error: "Adresų patvirtinimas laikinai nepasiekiamas. Bandykite vėliau." });
+    }
+    return res.status(200).json(signed);
   } catch (error) {
     const status = error instanceof GeoapifyUpstreamError && error.status === 504 ? 504 : 502;
     console.error("Geoapify adresų paieškos klaida", {
