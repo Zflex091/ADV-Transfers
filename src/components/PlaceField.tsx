@@ -24,7 +24,7 @@ type Props = {
 };
 
 type PlaceSuggestion = {
-  provider: "mapbox";
+  provider: "geoapify";
   providerPlaceId: string;
   label: string;
   mainText: string;
@@ -83,7 +83,7 @@ function isPlace(value: unknown): value is Place {
   const place = value as Partial<Place>;
 
   return (
-    place.provider === "mapbox" &&
+    place.provider === "geoapify" &&
     typeof place.providerPlaceId === "string" &&
     typeof place.label === "string" &&
     typeof place.placeToken === "string" &&
@@ -179,7 +179,7 @@ export default function PlaceField({
 
         const validSuggestions = result.filter(
           (suggestion) =>
-            suggestion?.provider === "mapbox" &&
+            suggestion?.provider === "geoapify" &&
             typeof suggestion.providerPlaceId === "string" &&
             typeof suggestion.label === "string",
         );
@@ -446,12 +446,12 @@ export default function PlaceField({
           {suggestions.length > 0 && (
             <div className="google-maps-attribution">
               <a
-                href="https://www.mapbox.com/about/maps/"
+                href="https://www.geoapify.com/"
                 target="_blank"
                 rel="noreferrer"
-                aria-label="Map data by Mapbox"
+                aria-label="Location data by Geoapify"
               >
-                © Mapbox
+                © Geoapify
               </a>
             </div>
           )}

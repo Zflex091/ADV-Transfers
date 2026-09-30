@@ -1,7 +1,7 @@
 import type { PricingSnapshot, TripPreferences, VehicleId } from './domain/booking'
 
 export type Place = {
-  provider: 'mapbox' | 'google'
+  provider: 'geoapify' | 'mapbox' | 'google'
   providerPlaceId: string
   label: string
   latitude: number
@@ -26,7 +26,7 @@ export type Booking = {
   distanceMeters: number
   durationSeconds: number
   routePolyline: string
-  routeProvider: 'mapbox' | 'google' | null
+  routeProvider: 'geoapify' | 'mapbox' | 'google' | null
   routeToken: string
   vehicleId: VehicleId | null
   preferences: TripPreferences

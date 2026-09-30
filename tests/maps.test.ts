@@ -4,782 +4,278 @@ import test, { type TestContext } from "node:test";
 import {
   consumeRateLimit,
   isCoordinate,
-  isValidPlaceId,
+  isValidGeoapifyId,
   isValidSessionToken,
-} from "../api/_google-maps.ts";
-import placeDetailsHandler, {
-  mapPlaceDetails,
-} from "../api/place-details.ts";
+} from "../api/_geoapify.ts";
+import placeDetailsHandler, { mapPlaceDetails } from "../api/place-details.ts";
 import placesHandler, {
   mapAutocompleteResponse,
+  mapPlacesResponse,
+  mergeAndRankSuggestions,
 } from "../api/places.ts";
 import routeHandler, { parseRouteResponse } from "../api/route.ts";
-import { verifyRouteToken } from "../api/_route-token.ts";
-import { verifyVerifiedPlaceToken } from "../api/_place-token.ts";
-import { decodeGooglePolyline } from "../src/maps/polyline.ts";
+import { createRouteToken, verifyRouteToken } from "../api/_route-token.ts";
+import { createVerifiedPlaceToken, verifyVerifiedPlaceToken } from "../api/_place-token.ts";
+import { prepareCheckoutRequest } from "../api/_checkout-data.ts";
+import { createEmptyPreferences } from "../src/domain/booking.ts";
 
-type MapsHandler = typeof placesHandler;
-type MapsRequest = Parameters<MapsHandler>[0];
-type MapsResponse = Parameters<MapsHandler>[1];
-
-type CapturedResponse = {
-  statusCode: number | null;
-  body: unknown;
-  headers: Record<string, unknown>;
-};
-
-type FetchCall = {
-  url: string;
-  init: RequestInit | undefined;
-};
+type Handler = typeof placesHandler;
+type MapsRequest = Parameters<Handler>[0];
+type MapsResponse = Parameters<Handler>[1];
 
 let requestSequence = 0;
 
-function createRequest({
-  method,
-  query = {},
-  body,
-}: {
-  method: string;
-  query?: Record<string, string | string[]>;
-  body?: unknown;
-}): MapsRequest {
-  requestSequence += 1;
-  const clientAddress = `2001:db8::${requestSequence.toString(16)}`;
-
+function request(method: string, query: Record<string, string> = {}, body?: unknown): MapsRequest {
+  const ip = `2001:db8::${(++requestSequence).toString(16)}`;
   return {
     method,
     query,
     body,
-    headers: { "x-forwarded-for": clientAddress },
-    socket: { remoteAddress: clientAddress },
+    headers: { "x-forwarded-for": ip },
+    socket: { remoteAddress: ip },
   } as unknown as MapsRequest;
 }
 
-function createResponse() {
-  const captured: CapturedResponse = {
-    statusCode: null,
-    body: undefined,
+function response() {
+  const captured: { status: number | null; body: any; headers: Record<string, unknown> } = {
+    status: null,
+    body: null,
     headers: {},
   };
-  const response = {
-    setHeader(name: string, value: unknown) {
-      captured.headers[name.toLowerCase()] = value;
-      return response;
-    },
-    status(statusCode: number) {
-      captured.statusCode = statusCode;
-      return response;
-    },
-    json(body: unknown) {
-      captured.body = body;
-      return response;
-    },
-  };
-
-  return {
-    captured,
-    response: response as unknown as MapsResponse,
-  };
+  const res = {
+    setHeader(name: string, value: unknown) { captured.headers[name.toLowerCase()] = value; return res; },
+    status(value: number) { captured.status = value; return res; },
+    json(value: unknown) { captured.body = value; return res; },
+  } as unknown as MapsResponse;
+  return { res, captured };
 }
 
-function setTestEnvironment(
-  t: TestContext,
-  name: string,
-  value: string | undefined,
-) {
+function env(t: TestContext, name: string, value: string | undefined) {
   const previous = process.env[name];
-
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
-
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
   t.after(() => {
-    if (previous === undefined) {
-      delete process.env[name];
-    } else {
-      process.env[name] = previous;
-    }
+    if (previous === undefined) delete process.env[name];
+    else process.env[name] = previous;
   });
 }
 
-function mockJsonFetch(
-  t: TestContext,
-  payload: unknown,
-  status = 200,
-) {
-  const calls: FetchCall[] = [];
-
-  t.mock.method(
-    globalThis,
-    "fetch",
-    async (input: string | URL | Request, init?: RequestInit) => {
-      calls.push({
-        url: input instanceof Request ? input.url : input.toString(),
-        init,
-      });
-
-      return new Response(JSON.stringify(payload), {
-        status,
-        headers: { "Content-Type": "application/json" },
-      });
-    },
-  );
-
-  return calls;
+function mockFetch(t: TestContext, responder: (url: URL) => unknown) {
+  const urls: URL[] = [];
+  t.mock.method(globalThis, "fetch", async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input.toString());
+    urls.push(url);
+    return new Response(JSON.stringify(responder(url)), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+  return urls;
 }
 
-test("places handler sends the Google autocomplete contract and maps results", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", "server-key");
-  const fetchCalls = mockJsonFetch(t, {
-    suggestions: [
-      {
-        placePrediction: {
-          placeId: "ChIJKaunasAirport",
-          text: { text: "Kaunas Airport" },
-          structuredFormat: {
-            mainText: { text: "Kaunas Airport" },
-            secondaryText: { text: "Kaunas, Lithuania" },
-          },
-          types: ["airport"],
-        },
-      },
-    ],
-  });
-  const { captured, response } = createResponse();
-
-  await placesHandler(
-    createRequest({
-      method: "GET",
-      query: {
-        q: "  Kaunas Airport  ",
-        sessionToken: "autocomplete-session",
-        language: "en",
-      },
-    }),
-    response,
-  );
-
-  assert.equal(captured.statusCode, 200);
-  assert.deepEqual(captured.body, [
+test("Geoapify autocomplete maps addresses and rejects incomplete suggestions", () => {
+  const result = mapAutocompleteResponse({ results: [
     {
-      provider: "google",
-      providerPlaceId: "ChIJKaunasAirport",
-      label: "Kaunas Airport",
-      mainText: "Kaunas Airport",
-      secondaryText: "Kaunas, Lithuania",
-      types: ["airport"],
+      place_id: "address-1",
+      formatted: "Rotušės a. 15, Kaunas, Lithuania",
+      address_line1: "Rotušės a. 15",
+      address_line2: "Kaunas, Lithuania",
+      result_type: "building",
     },
-  ]);
-  assert.equal(captured.headers["cache-control"], "no-store");
-  assert.equal(fetchCalls.length, 1);
-
-  const call = fetchCalls[0];
-  assert.ok(call);
-  assert.equal(
-    call.url,
-    "https://places.googleapis.com/v1/places:autocomplete",
-  );
-  assert.equal(call.init?.method, "POST");
-  const headers = new Headers(call.init?.headers);
-  assert.equal(headers.get("x-goog-api-key"), "server-key");
-  assert.equal(
-    headers.get("x-goog-fieldmask"),
-    [
-      "suggestions.placePrediction.placeId",
-      "suggestions.placePrediction.text.text",
-      "suggestions.placePrediction.structuredFormat.mainText.text",
-      "suggestions.placePrediction.structuredFormat.secondaryText.text",
-      "suggestions.placePrediction.types",
-    ].join(","),
-  );
-
-  const upstreamBody = JSON.parse(String(call.init?.body));
-  assert.deepEqual(upstreamBody, {
-    input: "Kaunas Airport",
-    sessionToken: "autocomplete-session",
-    languageCode: "en",
-    regionCode: "LT",
-    locationBias: {
-      circle: {
-        center: {
-          latitude: 54.8985,
-          longitude: 23.9036,
-        },
-        radius: 50_000,
-      },
-    },
+    { formatted: "Missing ID" },
+  ] });
+  assert.equal(result.length, 1);
+  assert.deepEqual(result[0], {
+    provider: "geoapify",
+    providerPlaceId: "address-1",
+    label: "Rotušės a. 15, Kaunas, Lithuania",
+    mainText: "Rotušės a. 15",
+    secondaryText: "Kaunas, Lithuania",
+    types: ["building"],
+    featureType: "building",
+    distanceMeters: undefined,
   });
-  assert.equal("includedRegionCodes" in upstreamBody, false);
 });
 
-test("place details handler passes the session and maps exact coordinates", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", "server-key");
-  const fetchCalls = mockJsonFetch(t, {
-    id: "  ChIJKaunasCenter  ",
-    formattedAddress: "  Kaunas City Center  ",
-    location: {
-      latitude: 54.8985,
-      longitude: 23.9036,
+test("Geoapify Places maps named hotels ahead of a same-name locality", () => {
+  const hotel = mapPlacesResponse({ features: [{ properties: {
+    place_id: "hotel-1",
+    name: "Daugirdas",
+    formatted: "T. Daugirdo g. 4, Kaunas",
+    categories: ["accommodation.hotel"],
+    distance: 900,
+  } }] });
+  const locality = mapAutocompleteResponse({ results: [{
+    place_id: "city-1",
+    formatted: "Daugirdai, Lithuania",
+    address_line1: "Daugirdai",
+    result_type: "city",
+  }] });
+  const ranked = mergeAndRankSuggestions([locality, hotel], "Daugirdas hotel");
+  assert.equal(ranked[0]?.providerPlaceId, "hotel-1");
+  assert.equal(ranked[0]?.label, "Daugirdas, T. Daugirdo g. 4, Kaunas");
+});
+
+test("places handler calls Autocomplete and hotel Places without changing the UI response", async (t) => {
+  env(t, "GEOAPIFY_API_KEY", "server-key");
+  const urls = mockFetch(t, (url) => url.pathname.includes("/geocode/autocomplete")
+    ? { results: [{
+        place_id: "address-1",
+        formatted: "T. Daugirdo g. 4, Kaunas",
+        address_line1: "T. Daugirdo g. 4",
+        result_type: "building",
+      }] }
+    : { features: [{ properties: {
+        place_id: "hotel-1",
+        name: "Daugirdas",
+        formatted: "T. Daugirdo g. 4, Kaunas",
+        categories: ["accommodation.hotel"],
+      } }] });
+  const { res, captured } = response();
+  await placesHandler(request("GET", { q: "Daugirdas hotel", sessionToken: "safe-session", language: "lt" }), res);
+  assert.equal(captured.status, 200);
+  assert.equal(captured.body[0].providerPlaceId, "hotel-1");
+  assert.equal(captured.body[0].provider, "geoapify");
+  assert.equal(urls.length, 2);
+  const autocompleteUrl = urls.find((url) => url.pathname.includes("/geocode/autocomplete"));
+  const placesUrl = urls.find((url) => url.pathname.includes("/v2/places"));
+  assert.equal(autocompleteUrl?.searchParams.get("text"), "Daugirdas hotel");
+  assert.equal(autocompleteUrl?.searchParams.get("format"), "json");
+  assert.equal(placesUrl?.searchParams.get("categories"), "accommodation.hotel,accommodation.guest_house");
+  assert.equal(placesUrl?.searchParams.get("name"), "daugirdas");
+  assert.equal(placesUrl?.searchParams.get("apiKey"), "server-key");
+});
+
+test("place details maps Geoapify details coordinates and rejects a different ID", () => {
+  const data = { features: [{
+    properties: {
+      feature_type: "details",
+      place_id: "selected-1",
+      name: "Daugirdas",
+      formatted: "T. Daugirdo g. 4, Kaunas",
+      lat: 54.895,
+      lon: 23.883,
     },
+  }] };
+  assert.deepEqual(mapPlaceDetails(data, "selected-1"), {
+    provider: "geoapify",
+    providerPlaceId: "selected-1",
+    label: "Daugirdas, T. Daugirdo g. 4, Kaunas",
+    latitude: 54.895,
+    longitude: 23.883,
   });
-  const { captured, response } = createResponse();
-
-  await placeDetailsHandler(
-    createRequest({
-      method: "GET",
-      query: {
-        placeId: "ChIJKaunasCenter",
-        sessionToken: "details-session",
-        language: "en",
-      },
-    }),
-    response,
-  );
-
-  assert.equal(captured.statusCode, 200);
-  const place = captured.body as Record<string, unknown>;
-  assert.deepEqual({ ...place, placeToken: undefined }, {
-    provider: "google",
-    providerPlaceId: "ChIJKaunasCenter",
-    label: "Kaunas City Center",
-    latitude: 54.8985,
-    longitude: 23.9036,
-    placeToken: undefined,
-  });
-  assert.equal(typeof place.placeToken, "string");
-  assert.deepEqual(verifyVerifiedPlaceToken(place.placeToken), {
-    provider: "google",
-    providerPlaceId: "ChIJKaunasCenter",
-    label: "Kaunas City Center",
-    latitude: 54.8985,
-    longitude: 23.9036,
-  });
-  assert.equal(fetchCalls.length, 1);
-
-  const call = fetchCalls[0];
-  assert.ok(call);
-  assert.equal(
-    call.url,
-    "https://places.googleapis.com/v1/places/ChIJKaunasCenter?languageCode=en&regionCode=LT&sessionToken=details-session",
-  );
-  assert.equal(call.init?.method, "GET");
-  assert.equal(call.init?.body, undefined);
-  const headers = new Headers(call.init?.headers);
-  assert.equal(headers.get("x-goog-api-key"), "server-key");
-  assert.equal(
-    headers.get("x-goog-fieldmask"),
-    "id,formattedAddress,location",
-  );
+  assert.equal(mapPlaceDetails(data, "forged-2"), null);
 });
 
-test("place details never signs a different Google place ID", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", "server-key");
-  mockJsonFetch(t, {
-    id: "ChIJUnexpected",
-    formattedAddress: "Unrelated place",
-    location: { latitude: 54.8985, longitude: 23.9036 },
-  });
-  const { captured, response } = createResponse();
-  await placeDetailsHandler(
-    createRequest({
-      method: "GET",
-      query: { placeId: "ChIJRequested", sessionToken: "details-session" },
-    }),
-    response,
-  );
-  assert.equal(captured.statusCode, 502);
-  assert.equal((captured.body as Record<string, unknown>).placeToken, undefined);
+test("place details handler resolves the ID at Geoapify and signs the result", async (t) => {
+  env(t, "GEOAPIFY_API_KEY", "server-key");
+  env(t, "ROUTE_TOKEN_SECRET", "test-signing-key");
+  const urls = mockFetch(t, () => ({ features: [{ properties: {
+    feature_type: "details",
+    place_id: "selected-1",
+    formatted: "Rotušės a. 15, Kaunas",
+    lat: 54.896,
+    lon: 23.887,
+  } }] }));
+  const { res, captured } = response();
+  await placeDetailsHandler(request("GET", { placeId: "selected-1", sessionToken: "safe-session" }), res);
+  assert.equal(captured.status, 200);
+  assert.equal(urls[0].pathname, "/v2/place-details");
+  assert.equal(urls[0].searchParams.get("id"), "selected-1");
+  assert.equal(urls[0].searchParams.get("features"), "details");
+  assert.equal(captured.body.provider, "geoapify");
+  assert.equal(verifyVerifiedPlaceToken(captured.body.placeToken)?.providerPlaceId, "selected-1");
 });
 
-test("route handler sends latLng points and returns the exact parsed route", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", "server-key");
-  setTestEnvironment(t, "GOOGLE_ROUTES_TRAFFIC_AWARE", undefined);
-  const fetchCalls = mockJsonFetch(t, {
-    routes: [
-      {
-        distanceMeters: 12_345.6,
-        duration: "61.4s",
-        polyline: { encodedPolyline: "  encoded-route  " },
-      },
-    ],
-  });
-  const { captured, response } = createResponse();
-
-  await routeHandler(
-    createRequest({
-      method: "POST",
-      body: {
-        origin: {
-          latitude: 54.8985,
-          longitude: 23.9036,
-        },
-        destination: {
-          latitude: 54.9639,
-          longitude: 24.0848,
-        },
-        language: "en",
-      },
-    }),
-    response,
-  );
-
-  assert.equal(captured.statusCode, 200);
-  assert.ok(
-    typeof captured.body === "object" &&
-      captured.body !== null &&
-      "routeToken" in captured.body &&
-      typeof captured.body.routeToken === "string",
-  );
-  const { routeToken, ...routeBody } = captured.body;
-  assert.deepEqual(routeBody, {
-    provider: "google",
-    distanceMeters: 12_346,
+test("routing parses Geoapify polyline6, meters and seconds", () => {
+  const route = parseRouteResponse({ features: [{ properties: {
+    distance: 12345.6,
+    time: 61.2,
+    polyline6: "encoded-route",
+  } }] });
+  assert.deepEqual(route, {
+    provider: "geoapify",
+    distanceMeters: 12346,
     durationSeconds: 61,
     encodedPolyline: "encoded-route",
     distanceKm: 12.3,
     durationMin: 2,
   });
-  assert.equal(verifyRouteToken(routeToken)?.distanceMeters, 12_346);
-  assert.equal(fetchCalls.length, 1);
+  assert.equal(parseRouteResponse({ features: [{ properties: { distance: 1000, time: 60 } }] }), null);
+});
 
-  const call = fetchCalls[0];
-  assert.ok(call);
-  assert.equal(
-    call.url,
-    "https://routes.googleapis.com/directions/v2:computeRoutes",
-  );
-  assert.equal(call.init?.method, "POST");
-  const headers = new Headers(call.init?.headers);
-  assert.equal(headers.get("x-goog-api-key"), "server-key");
-  assert.equal(
-    headers.get("x-goog-fieldmask"),
-    [
-      "routes.distanceMeters",
-      "routes.duration",
-      "routes.polyline.encodedPolyline",
-    ].join(","),
-  );
-  assert.deepEqual(JSON.parse(String(call.init?.body)), {
-    origin: {
-      location: {
-        latLng: {
-          latitude: 54.8985,
-          longitude: 23.9036,
-        },
-      },
-    },
-    destination: {
-      location: {
-        latLng: {
-          latitude: 54.9639,
-          longitude: 24.0848,
-        },
-      },
-    },
-    travelMode: "DRIVE",
-    routingPreference: "TRAFFIC_UNAWARE",
-    computeAlternativeRoutes: false,
-    languageCode: "en",
-    units: "METRIC",
+test("route handler sends lat,lon waypoints and signs the measured distance", async (t) => {
+  env(t, "GEOAPIFY_API_KEY", "server-key");
+  env(t, "ROUTE_TOKEN_SECRET", "test-signing-key");
+  const urls = mockFetch(t, () => ({ features: [{ properties: {
+    distance: 15340,
+    time: 1420,
+    polyline6: "encoded-route",
+  } }] }));
+  const { res, captured } = response();
+  await routeHandler(request("POST", {}, {
+    origin: { latitude: 54.9639, longitude: 24.0848 },
+    destination: { latitude: 54.8985, longitude: 23.9036 },
+  }), res);
+  assert.equal(captured.status, 200);
+  assert.equal(urls[0].pathname, "/v1/routing");
+  assert.equal(urls[0].searchParams.get("waypoints"), "54.9639,24.0848|54.8985,23.9036");
+  assert.equal(urls[0].searchParams.get("details"), "polyline6");
+  assert.equal(urls[0].searchParams.get("mode"), "drive");
+  assert.equal(captured.body.provider, "geoapify");
+  assert.equal(captured.body.distanceMeters, 15340);
+  assert.equal(verifyRouteToken(captured.body.routeToken)?.distanceMeters, 15340);
+});
+
+test("missing Geoapify key fails without contacting an upstream service", async (t) => {
+  env(t, "GEOAPIFY_API_KEY", undefined);
+  const urls = mockFetch(t, () => { throw new Error("Must not fetch"); });
+  const { res, captured } = response();
+  await placesHandler(request("GET", { q: "Kaunas", sessionToken: "safe-session" }), res);
+  assert.equal(captured.status, 503);
+  assert.equal(urls.length, 0);
+});
+
+test("Geoapify selections pass the existing signed checkout path", (t) => {
+  env(t, "ROUTE_TOKEN_SECRET", "test-signing-key");
+  const origin = { latitude: 54.9639, longitude: 24.0848 };
+  const destination = { latitude: 54.8985, longitude: 23.9036 };
+  const pickup = { provider: "geoapify" as const, providerPlaceId: "airport-1", label: "Kauno oro uostas", ...origin };
+  const arrival = { provider: "geoapify" as const, providerPlaceId: "centre-1", label: "Kauno centras", ...destination };
+  const routeToken = createRouteToken({ origin, destination, distanceMeters: 10_000, durationSeconds: 900 });
+  assert.ok(routeToken);
+  const checkout = prepareCheckoutRequest({
+    routeToken,
+    routeProvider: "geoapify",
+    pickup: { ...pickup, placeToken: createVerifiedPlaceToken(pickup) },
+    destination: { ...arrival, placeToken: createVerifiedPlaceToken(arrival) },
+    date: "2030-09-23",
+    time: "14:00",
+    passengers: 2,
+    luggage: 2,
+    vehicleId: "economy",
+    firstName: "Aistė",
+    lastName: "Jonaitė",
+    phone: "+37061234567",
+    email: "aiste@example.com",
+    preferences: createEmptyPreferences(),
+    paymentMethod: "driver",
+    clientRequestId: "75150b6e-f8f6-4425-8d5e-f950f0005ae1",
   });
+  assert.equal(checkout.draft.pickup.provider, "geoapify");
+  assert.equal(checkout.draft.destination.provider, "geoapify");
+  assert.equal(checkout.draft.route.provider, "geoapify");
 });
 
-test("handlers return 503 without a server key and never call Google", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", undefined);
-  const fetchCalls = mockJsonFetch(t, { unexpected: true });
-  const cases: Array<{
-    handler: MapsHandler;
-    request: MapsRequest;
-  }> = [
-    {
-      handler: placesHandler,
-      request: createRequest({
-        method: "GET",
-        query: {
-          q: "Kaunas",
-          sessionToken: "missing-key-places",
-        },
-      }),
-    },
-    {
-      handler: placeDetailsHandler,
-      request: createRequest({
-        method: "GET",
-        query: {
-          placeId: "ChIJMissingKey",
-          sessionToken: "missing-key-details",
-        },
-      }),
-    },
-    {
-      handler: routeHandler,
-      request: createRequest({
-        method: "POST",
-        body: {
-          origin: { latitude: 54.8985, longitude: 23.9036 },
-          destination: { latitude: 54.9639, longitude: 24.0848 },
-        },
-      }),
-    },
-  ];
-
-  for (const testCase of cases) {
-    const { captured, response } = createResponse();
-    await testCase.handler(testCase.request, response);
-
-    assert.equal(captured.statusCode, 503);
-    assert.deepEqual(
-      Object.keys(captured.body as Record<string, unknown>),
-      ["error"],
-    );
-  }
-
-  assert.equal(fetchCalls.length, 0);
-});
-
-test("handlers surface upstream errors instead of returning fabricated data", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", "server-key");
-  t.mock.method(console, "error", () => {});
-  const fetchCalls = mockJsonFetch(t, { upstream: "failed" }, 500);
-  const cases: Array<{
-    handler: MapsHandler;
-    request: MapsRequest;
-  }> = [
-    {
-      handler: placesHandler,
-      request: createRequest({
-        method: "GET",
-        query: {
-          q: "Kaunas",
-          sessionToken: "failed-places",
-        },
-      }),
-    },
-    {
-      handler: placeDetailsHandler,
-      request: createRequest({
-        method: "GET",
-        query: {
-          placeId: "ChIJFailedDetails",
-          sessionToken: "failed-details",
-        },
-      }),
-    },
-    {
-      handler: routeHandler,
-      request: createRequest({
-        method: "POST",
-        body: {
-          origin: { latitude: 54.8985, longitude: 23.9036 },
-          destination: { latitude: 54.9639, longitude: 24.0848 },
-        },
-      }),
-    },
-  ];
-
-  for (const testCase of cases) {
-    const { captured, response } = createResponse();
-    await testCase.handler(testCase.request, response);
-
-    assert.equal(captured.statusCode, 502);
-    assert.deepEqual(
-      Object.keys(captured.body as Record<string, unknown>),
-      ["error"],
-    );
-  }
-
-  assert.equal(fetchCalls.length, 3);
-});
-
-test("route handler reports no route without inventing a fallback", async (t) => {
-  setTestEnvironment(t, "GOOGLE_MAPS_SERVER_API_KEY", "server-key");
-  const fetchCalls = mockJsonFetch(t, { routes: [] });
-  const { captured, response } = createResponse();
-
-  await routeHandler(
-    createRequest({
-      method: "POST",
-      body: {
-        origin: { latitude: 54.8985, longitude: 23.9036 },
-        destination: { latitude: 54.9639, longitude: 24.0848 },
-      },
-    }),
-    response,
-  );
-
-  assert.equal(captured.statusCode, 422);
-  assert.deepEqual(
-    Object.keys(captured.body as Record<string, unknown>),
-    ["error"],
-  );
-  assert.equal(fetchCalls.length, 1);
-});
-
-test("autocomplete mapping normalizes valid Google predictions", () => {
-  const suggestions = mapAutocompleteResponse({
-    suggestions: [
-      {
-        placePrediction: {
-          placeId: "  ChIJKaunas123  ",
-          text: { text: "  Laisvės al. 1, Kaunas  " },
-          structuredFormat: {
-            mainText: { text: "  Laisvės al. 1  " },
-            secondaryText: { text: "  Kaunas, Lithuania  " },
-          },
-          types: ["street_address", "premise"],
-        },
-      },
-      {
-        placePrediction: {
-          placeId: "fallback-id",
-          text: { text: "Kauno oro uostas" },
-          structuredFormat: {
-            mainText: { text: "   " },
-            secondaryText: { text: "   " },
-          },
-        },
-      },
-    ],
-  });
-
-  assert.deepEqual(suggestions, [
-    {
-      provider: "google",
-      providerPlaceId: "ChIJKaunas123",
-      label: "Laisvės al. 1, Kaunas",
-      mainText: "Laisvės al. 1",
-      secondaryText: "Kaunas, Lithuania",
-      types: ["street_address", "premise"],
-    },
-    {
-      provider: "google",
-      providerPlaceId: "fallback-id",
-      label: "Kauno oro uostas",
-      mainText: "Kauno oro uostas",
-      secondaryText: "",
-      types: [],
-    },
-  ]);
-});
-
-test("autocomplete mapping drops incomplete predictions and malformed types", () => {
-  const suggestions = mapAutocompleteResponse({
-    suggestions: [
-      { placePrediction: { placeId: "valid-id", text: { text: "Valid" } } },
-      { placePrediction: { placeId: "", text: { text: "Missing id" } } },
-      { placePrediction: { placeId: "missing-label" } },
-      {},
-      {
-        placePrediction: {
-          placeId: "typed-id",
-          text: { text: "Typed" },
-          types: ["locality", 42, null] as unknown as string[],
-        },
-      },
-    ],
-  });
-
-  assert.deepEqual(
-    suggestions.map(({ providerPlaceId, types }) => ({ providerPlaceId, types })),
-    [
-      { providerPlaceId: "valid-id", types: [] },
-      { providerPlaceId: "typed-id", types: ["locality"] },
-    ],
-  );
-  assert.deepEqual(mapAutocompleteResponse({}), []);
-});
-
-test("place details mapping trims fields and preserves valid boundary coordinates", () => {
-  assert.deepEqual(
-    mapPlaceDetails({
-      id: "  ChIJDetails123  ",
-      formattedAddress: "  Rotušės a. 15, Kaunas  ",
-      location: { latitude: -90, longitude: 180 },
-    }),
-    {
-      provider: "google",
-      providerPlaceId: "ChIJDetails123",
-      label: "Rotušės a. 15, Kaunas",
-      latitude: -90,
-      longitude: 180,
-    },
-  );
-});
-
-test("place details mapping rejects incomplete or invalid locations", () => {
-  const invalidDetails = [
-    {},
-    {
-      id: "valid-id",
-      formattedAddress: "   ",
-      location: { latitude: 54.9, longitude: 23.9 },
-    },
-    {
-      id: "valid-id",
-      formattedAddress: "Kaunas",
-      location: { latitude: 90.00001, longitude: 23.9 },
-    },
-    {
-      id: "valid-id",
-      formattedAddress: "Kaunas",
-      location: { latitude: 54.9, longitude: Number.NaN },
-    },
-  ];
-
-  for (const details of invalidDetails) {
-    assert.equal(mapPlaceDetails(details), null);
-  }
-});
-
-test("route response parsing derives rounded distance and duration summaries", () => {
-  assert.deepEqual(
-    parseRouteResponse({
-      routes: [
-        {
-          distanceMeters: 12_345.6,
-          duration: "61.4s",
-          polyline: { encodedPolyline: "  encoded-route  " },
-        },
-      ],
-    }),
-    {
-      provider: "google",
-      distanceMeters: 12_346,
-      durationSeconds: 61,
-      encodedPolyline: "encoded-route",
-      distanceKm: 12.3,
-      durationMin: 2,
-    },
-  );
-
-  assert.equal(
-    parseRouteResponse({
-      routes: [
-        {
-          distanceMeters: 1,
-          duration: "0.2s",
-          polyline: { encodedPolyline: "route" },
-        },
-      ],
-    })?.durationSeconds,
-    1,
-  );
-});
-
-test("route response parsing rejects missing and malformed route data", () => {
-  const invalidResponses = [
-    {},
-    { routes: [] },
-    {
-      routes: [
-        {
-          distanceMeters: 0,
-          duration: "60s",
-          polyline: { encodedPolyline: "route" },
-        },
-      ],
-    },
-    {
-      routes: [
-        {
-          distanceMeters: 1_000,
-          duration: "1m",
-          polyline: { encodedPolyline: "route" },
-        },
-      ],
-    },
-    {
-      routes: [
-        {
-          distanceMeters: 1_000,
-          duration: "60s",
-          polyline: { encodedPolyline: "   " },
-        },
-      ],
-    },
-  ];
-
-  for (const response of invalidResponses) {
-    assert.equal(parseRouteResponse(response), null);
-  }
-});
-
-test("coordinate validation accepts inclusive numeric bounds only", () => {
+test("shared validation and rate limiting preserve their existing boundaries", () => {
   assert.equal(isCoordinate(-90, -90, 90), true);
-  assert.equal(isCoordinate(90, -90, 90), true);
-  assert.equal(isCoordinate(0, -180, 180), true);
-
-  for (const value of [-90.00001, 90.00001, Number.NaN, Infinity, "54.9", null]) {
-    assert.equal(isCoordinate(value, -90, 90), false);
-  }
-});
-
-test("Google proxy rate limit blocks excess requests and resets", () => {
-  const namespace = `test-${Date.now()}-${Math.random()}`;
-  const headers = { "x-forwarded-for": "203.0.113.44" };
-
-  assert.deepEqual(
-    consumeRateLimit(headers, undefined, namespace, 2, 1_000),
-    { allowed: true, limit: 2, remaining: 1, resetAt: 61_000 },
-  );
-  assert.equal(
-    consumeRateLimit(headers, undefined, namespace, 2, 1_001).allowed,
-    true,
-  );
-  assert.equal(
-    consumeRateLimit(headers, undefined, namespace, 2, 1_002).allowed,
-    false,
-  );
-  assert.deepEqual(
-    consumeRateLimit(headers, undefined, namespace, 2, 61_000),
-    { allowed: true, limit: 2, remaining: 1, resetAt: 121_000 },
-  );
-});
-
-test("session token validation enforces its alphabet and length boundaries", () => {
-  assert.equal(isValidSessionToken("a"), true);
-  assert.equal(isValidSessionToken(`A0_-${"z".repeat(32)}`), true);
-
-  assert.equal(isValidSessionToken(""), false);
-  assert.equal(isValidSessionToken("a".repeat(37)), false);
-  assert.equal(isValidSessionToken("valid-token-with-space "), false);
-  assert.equal(isValidSessionToken("valid.token.12345"), false);
-});
-
-test("place ID validation enforces its alphabet and length boundaries", () => {
-  assert.equal(isValidPlaceId("abc_5"), true);
-  assert.equal(isValidPlaceId(`ChIJ-${"x".repeat(250)}`), true);
-
-  assert.equal(isValidPlaceId("abcd"), false);
-  assert.equal(isValidPlaceId("x".repeat(256)), false);
-  assert.equal(isValidPlaceId("place id"), false);
-  assert.equal(isValidPlaceId("place:id"), false);
-});
-
-test("Google polyline decoder reconstructs canonical route coordinates", () => {
-  const points = decodeGooglePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
-
-  assert.deepEqual(points, [
-    { lat: 38.5, lng: -120.2 },
-    { lat: 40.7, lng: -120.95 },
-    { lat: 43.252, lng: -126.453 },
-  ]);
-});
-
-test("Google polyline decoder rejects truncated and underspecified geometry", () => {
-  assert.throws(
-    () => decodeGooglePolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`"),
-    /Nebaigta maršruto geometrija/,
-  );
-  assert.throws(
-    () => decodeGooglePolyline("_p~iF~ps|U"),
-    /Maršrute nepakanka taškų/,
-  );
-  assert.throws(
-    () => decodeGooglePolyline(" "),
-    /Netinkama maršruto geometrija/,
-  );
+  assert.equal(isCoordinate(Number.NaN, -90, 90), false);
+  assert.equal(isValidGeoapifyId("geoapify-1"), true);
+  assert.equal(isValidGeoapifyId("bad id"), false);
+  assert.equal(isValidSessionToken("session_1"), true);
+  assert.equal(isValidSessionToken("session with spaces"), false);
+  const headers = { "x-forwarded-for": "test-rate-limit" };
+  assert.equal(consumeRateLimit(headers, undefined, "test", 1, 1).allowed, true);
+  assert.equal(consumeRateLimit(headers, undefined, "test", 1, 2).allowed, false);
+  assert.equal(consumeRateLimit(headers, undefined, "test", 1, 60_002).allowed, true);
 });

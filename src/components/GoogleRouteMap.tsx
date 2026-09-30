@@ -3,68 +3,83 @@ import { useEffect, useRef, useState } from "react";
 
 import { decodePolyline } from "../maps/polyline";
 
-const MAPBOX_GL_VERSION = "3.30.0";
-const MAPBOX_SCRIPT_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.js`;
-const MAPBOX_STYLE_URL = `https://api.mapbox.com/mapbox-gl-js/v${MAPBOX_GL_VERSION}/mapbox-gl.css`;
+const LEAFLET_SCRIPT_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const LEAFLET_STYLE_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_SCRIPT_INTEGRITY = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=";
+const LEAFLET_STYLE_INTEGRITY = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=";
 
-type MapboxNamespace = {
-  Map: new (options: Record<string, unknown>) => any;
-  Marker: new (options?: Record<string, unknown>) => any;
-  LngLatBounds: new (sw?: [number, number], ne?: [number, number]) => any;
+type LeafletNamespace = {
+  Browser: { retina: boolean };
+  map: (element: HTMLElement, options: Record<string, unknown>) => any;
+  tileLayer: (url: string, options: Record<string, unknown>) => any;
+  polyline: (points: [number, number][], options: Record<string, unknown>) => any;
+  circleMarker: (point: [number, number], options: Record<string, unknown>) => any;
 };
 
 declare global {
-  interface Window {
-    mapboxgl?: MapboxNamespace;
-  }
+  interface Window { L?: LeafletNamespace }
 }
 
-let loaderPromise: Promise<MapboxNamespace> | null = null;
+let loaderPromise: Promise<LeafletNamespace> | null = null;
 
-function loadMapboxGl(): Promise<MapboxNamespace> {
-  if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
+function loadLeaflet(): Promise<LeafletNamespace> {
   if (loaderPromise) return loaderPromise;
+  if (window.L && document.querySelector<HTMLLinkElement>(`link[href="${LEAFLET_STYLE_URL}"]`)?.sheet) {
+    return Promise.resolve(window.L);
+  }
 
-  loaderPromise = new Promise<MapboxNamespace>((resolve, reject) => {
-    if (!document.querySelector(`link[href="${MAPBOX_STYLE_URL}"]`)) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = MAPBOX_STYLE_URL;
-      document.head.appendChild(link);
-    }
-
-    const existing = document.querySelector<HTMLScriptElement>(
-      `script[src="${MAPBOX_SCRIPT_URL}"]`,
-    );
-
-    const complete = () => {
-      if (window.mapboxgl) resolve(window.mapboxgl);
-      else reject(new Error("Mapbox GL nepavyko įkelti."));
-    };
-
-    if (existing) {
-      if (window.mapboxgl) complete();
-      else {
-        existing.addEventListener("load", complete, { once: true });
-        existing.addEventListener(
-          "error",
-          () => reject(new Error("Mapbox GL nepavyko įkelti.")),
-          { once: true },
-        );
-      }
+  const stylePromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLLinkElement>(`link[href="${LEAFLET_STYLE_URL}"]`);
+    if (existing?.sheet) {
+      resolve();
       return;
     }
+    const link = existing ?? document.createElement("link");
+    if (!existing) {
+      link.rel = "stylesheet";
+      link.href = LEAFLET_STYLE_URL;
+      link.integrity = LEAFLET_STYLE_INTEGRITY;
+      link.crossOrigin = "anonymous";
+    }
+    link.addEventListener("load", () => resolve(), { once: true });
+    link.addEventListener("error", () => {
+      link.remove();
+      reject(new Error("Leaflet žemėlapio stiliaus nepavyko įkelti."));
+    }, { once: true });
+    if (!existing) document.head.appendChild(link);
+  });
 
-    const script = document.createElement("script");
-    script.src = MAPBOX_SCRIPT_URL;
-    script.async = true;
+  const scriptPromise = new Promise<LeafletNamespace>((resolve, reject) => {
+    if (window.L) {
+      resolve(window.L);
+      return;
+    }
+    const existing = document.querySelector<HTMLScriptElement>(`script[src="${LEAFLET_SCRIPT_URL}"]`);
+    const script = existing ?? document.createElement("script");
+    if (!existing) {
+      script.src = LEAFLET_SCRIPT_URL;
+      script.integrity = LEAFLET_SCRIPT_INTEGRITY;
+      script.crossOrigin = "anonymous";
+      script.async = true;
+    }
+    const complete = () => {
+      if (window.L) resolve(window.L);
+      else {
+        script.remove();
+        reject(new Error("Leaflet žemėlapio nepavyko įkelti."));
+      }
+    };
     script.addEventListener("load", complete, { once: true });
-    script.addEventListener(
-      "error",
-      () => reject(new Error("Mapbox GL nepavyko įkelti.")),
-      { once: true },
-    );
-    document.head.appendChild(script);
+    script.addEventListener("error", () => {
+      script.remove();
+      reject(new Error("Leaflet žemėlapio nepavyko įkelti."));
+    }, { once: true });
+    if (!existing) document.head.appendChild(script);
+  });
+
+  loaderPromise = Promise.all([stylePromise, scriptPromise]).then(([, leaflet]) => leaflet).catch((error) => {
+    loaderPromise = null;
+    throw error;
   });
 
   return loaderPromise;
@@ -76,133 +91,114 @@ type Props = {
   ariaLabel?: string;
 };
 
-export default function GoogleRouteMap({
-  encodedPolyline,
-  language = "lt",
-  ariaLabel,
-}: Props) {
+export default function GoogleRouteMap({ encodedPolyline, language = "lt", ariaLabel }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const mapboxRef = useRef<MapboxNamespace | null>(null);
-  const markersRef = useRef<any[]>([]);
+  const leafletRef = useRef<LeafletNamespace | null>(null);
+  const routeLayersRef = useRef<any[]>([]);
+  const tileFailedRef = useRef(false);
   const [mapsReady, setMapsReady] = useState(false);
   const [mapFailed, setMapFailed] = useState(false);
-  const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN?.trim();
-  const copy =
-    language === "en"
-      ? {
-          loading: "Loading the route map...",
-          unavailable:
-            "The route map is temporarily unavailable. The distance and duration are still shown below.",
-          label: "Complete driving route map",
-        }
-      : {
-          loading: "Kraunamas maršruto žemėlapis...",
-          unavailable:
-            "Maršruto žemėlapis laikinai nepasiekiamas. Atstumas ir trukmė pateikti žemiau.",
-          label: "Viso važiavimo maršruto žemėlapis",
-        };
+  const apiKey = import.meta.env.VITE_GEOAPIFY_API_KEY?.trim();
+  const copy = language === "en"
+    ? {
+        loading: "Loading the route map...",
+        unavailable: "The route map is temporarily unavailable. The distance and duration are still shown below.",
+        label: "Complete driving route map",
+      }
+    : {
+        loading: "Kraunamas maršruto žemėlapis...",
+        unavailable: "Maršruto žemėlapis laikinai nepasiekiamas. Atstumas ir trukmė pateikti žemiau.",
+        label: "Viso važiavimo maršruto žemėlapis",
+      };
 
   useEffect(() => {
     let cancelled = false;
-
-    if (!accessToken) {
+    const mapKey = apiKey || "";
+    if (!mapKey) {
       setMapFailed(true);
       return;
     }
 
     async function initialize() {
       try {
-        const mapboxgl = await loadMapboxGl();
+        tileFailedRef.current = false;
+        const leaflet = await loadLeaflet();
         if (cancelled || !containerRef.current) return;
+        leafletRef.current = leaflet;
 
-        mapboxRef.current = mapboxgl;
-        const map = new mapboxgl.Map({
-          accessToken,
-          container: containerRef.current,
-          style: "mapbox://styles/mapbox/streets-v12",
-          center: [23.9036, 54.8985],
-          zoom: 10,
+        const map = leaflet.map(containerRef.current, {
+          zoomControl: false,
+          scrollWheelZoom: false,
           attributionControl: true,
-          cooperativeGestures: true,
-        });
+        }).setView([54.8985, 23.9036], 10);
         mapRef.current = map;
-        map.on("load", () => {
-          if (!cancelled) {
-            setMapsReady(true);
-            setMapFailed(false);
-          }
+
+        const tilePath = leaflet.Browser.retina
+          ? "{z}/{x}/{y}@2x.png"
+          : "{z}/{x}/{y}.png";
+        const tiles = leaflet.tileLayer(
+          `https://maps.geoapify.com/v1/tile/osm-bright/${tilePath}?apiKey=${encodeURIComponent(mapKey)}`,
+          {
+            maxZoom: 20,
+            attribution: 'Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer">Geoapify</a> | <a href="https://openmaptiles.org/" target="_blank" rel="noopener noreferrer">© OpenMapTiles</a> <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a> contributors',
+          },
+        );
+        tiles.on("tileerror", () => {
+          tileFailedRef.current = true;
+          if (!cancelled) setMapFailed(true);
         });
+        tiles.addTo(map);
+        map.invalidateSize();
+        setMapsReady(true);
+        setMapFailed(tileFailedRef.current);
       } catch {
         if (!cancelled) setMapFailed(true);
       }
     }
 
     void initialize();
-
     return () => {
       cancelled = true;
-      markersRef.current.forEach((marker) => marker.remove?.());
-      markersRef.current = [];
+      routeLayersRef.current.forEach((layer) => layer.remove?.());
+      routeLayersRef.current = [];
       mapRef.current?.remove?.();
       mapRef.current = null;
-      mapboxRef.current = null;
+      leafletRef.current = null;
+      tileFailedRef.current = false;
       setMapsReady(false);
     };
-  }, [accessToken]);
+  }, [apiKey]);
 
   useEffect(() => {
     const map = mapRef.current;
-    const mapboxgl = mapboxRef.current;
-    if (!mapsReady || !map || !mapboxgl || !encodedPolyline) return;
-
-    markersRef.current.forEach((marker) => marker.remove?.());
-    markersRef.current = [];
+    const leaflet = leafletRef.current;
+    if (!mapsReady || !map || !leaflet || !encodedPolyline) return;
+    routeLayersRef.current.forEach((layer) => layer.remove?.());
+    routeLayersRef.current = [];
 
     try {
-      const path = decodePolyline(encodedPolyline, 6);
-      const coordinates = path.map(
-        (point) => [point.lng, point.lat] as [number, number],
-      );
-
-      if (map.getLayer?.("adv-route")) map.removeLayer("adv-route");
-      if (map.getSource?.("adv-route")) map.removeSource("adv-route");
-
-      map.addSource("adv-route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: { type: "LineString", coordinates },
-        },
-      });
-      map.addLayer({
-        id: "adv-route",
-        type: "line",
-        source: "adv-route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": "#12664f",
-          "line-width": 6,
-          "line-opacity": 0.95,
-        },
-      });
-
-      const start = new mapboxgl.Marker({ color: "#12664f" })
-        .setLngLat(coordinates[0])
-        .addTo(map);
-      const finish = new mapboxgl.Marker({ color: "#12664f" })
-        .setLngLat(coordinates[coordinates.length - 1])
-        .addTo(map);
-      markersRef.current = [start, finish];
-
-      const bounds = new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]);
-      coordinates.slice(1).forEach((coordinate) => bounds.extend(coordinate));
-      map.fitBounds(bounds, { padding: 44, maxZoom: 15, duration: 0 });
-      setMapFailed(false);
+      const points = decodePolyline(encodedPolyline, 6)
+        .map((point) => [point.lat, point.lng] as [number, number]);
+      const route = leaflet.polyline(points, {
+        color: "#12664f",
+        weight: 6,
+        opacity: 0.95,
+        lineJoin: "round",
+        lineCap: "round",
+      }).addTo(map);
+      const markerStyle = {
+        radius: 8,
+        color: "#ffffff",
+        weight: 3,
+        fillColor: "#12664f",
+        fillOpacity: 1,
+      };
+      const start = leaflet.circleMarker(points[0], markerStyle).addTo(map);
+      const finish = leaflet.circleMarker(points[points.length - 1], markerStyle).addTo(map);
+      routeLayersRef.current = [route, start, finish];
+      map.fitBounds(route.getBounds(), { padding: [44, 44], maxZoom: 15, animate: false });
+      if (!tileFailedRef.current) setMapFailed(false);
     } catch {
       setMapFailed(true);
     }

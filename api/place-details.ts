@@ -1,103 +1,72 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
-  MapboxUpstreamError,
+  GeoapifyUpstreamError,
   consumeRateLimit,
-  fetchMapboxJson,
-  getMapboxServerToken,
+  fetchGeoapifyJson,
+  getGeoapifyServerKey,
   getQueryValue,
   isCoordinate,
-  isValidMapboxId,
+  isValidGeoapifyId,
   isValidSessionToken,
   normalizeLanguage,
-} from "./_mapbox.js";
+} from "./_geoapify.js";
 import { createVerifiedPlaceToken } from "./_place-token.js";
 
-type MapboxFeature = {
-  geometry?: {
-    type?: string;
-    coordinates?: unknown[];
-  };
+type GeoapifyDetailsFeature = {
+  geometry?: { type?: string; coordinates?: unknown };
   properties?: {
+    feature_type?: string;
+    place_id?: string;
     name?: string;
-    name_preferred?: string;
-    mapbox_id?: string;
-    address?: string;
-    full_address?: string;
-    place_formatted?: string;
-    coordinates?: {
-      latitude?: number;
-      longitude?: number;
-      routable_points?: Array<{
-        latitude?: number;
-        longitude?: number;
-      }>;
-    };
+    formatted?: string;
+    address_line1?: string;
+    address_line2?: string;
+    lat?: number;
+    lon?: number;
   };
 };
 
-type MapboxRetrieveResponse = {
-  features?: MapboxFeature[];
-};
+type GeoapifyDetailsResponse = { features?: GeoapifyDetailsFeature[] };
 
-function placeLabel(feature: MapboxFeature) {
-  const properties = feature.properties;
-  const fullAddress = properties?.full_address?.trim();
-  if (fullAddress) return fullAddress;
-
-  const name = (properties?.name_preferred || properties?.name || "").trim();
-  const context = properties?.place_formatted?.trim() ?? "";
-  if (name && context) return `${name}, ${context}`;
-  return name || properties?.address?.trim() || context;
-}
-
-export function mapPlaceDetails(data: MapboxRetrieveResponse) {
-  const feature = data.features?.[0];
+export function mapPlaceDetails(data: GeoapifyDetailsResponse, requestedPlaceId: string) {
+  const feature = data.features?.find((item) => item.properties?.feature_type === "details");
   const properties = feature?.properties;
-  const providerPlaceId = properties?.mapbox_id?.trim() ?? "";
-  const label = feature ? placeLabel(feature) : "";
+  if (!properties) return null;
 
-  const routable = properties?.coordinates?.routable_points?.find(
-    (point) =>
-      isCoordinate(point?.latitude, -90, 90) &&
-      isCoordinate(point?.longitude, -180, 180),
-  );
+  const returnedId = properties.place_id?.trim();
+  if (returnedId && returnedId !== requestedPlaceId) return null;
 
-  const geometryCoordinates = feature?.geometry?.coordinates;
-  const geometryLongitude = Array.isArray(geometryCoordinates)
-    ? geometryCoordinates[0]
-    : undefined;
-  const geometryLatitude = Array.isArray(geometryCoordinates)
-    ? geometryCoordinates[1]
-    : undefined;
-
-  const latitude = routable?.latitude ?? properties?.coordinates?.latitude ?? geometryLatitude;
-  const longitude = routable?.longitude ?? properties?.coordinates?.longitude ?? geometryLongitude;
+  const name = properties.name?.trim() ?? "";
+  const formatted = properties.formatted?.trim() ||
+    [properties.address_line1?.trim(), properties.address_line2?.trim()].filter(Boolean).join(", ");
+  const label = name && formatted && !formatted.toLocaleLowerCase("lt-LT").includes(name.toLocaleLowerCase("lt-LT"))
+    ? `${name}, ${formatted}`
+    : formatted || name;
+  const point = feature?.geometry?.type === "Point" && Array.isArray(feature.geometry.coordinates)
+    ? feature.geometry.coordinates
+    : null;
+  const latitude = properties.lat ?? point?.[1];
+  const longitude = properties.lon ?? point?.[0];
 
   if (
-    !providerPlaceId ||
+    !isValidGeoapifyId(requestedPlaceId) ||
     !label ||
     !isCoordinate(latitude, -90, 90) ||
     !isCoordinate(longitude, -180, 180)
-  ) {
-    return null;
-  }
+  ) return null;
 
   return {
-    provider: "mapbox" as const,
-    providerPlaceId,
+    provider: "geoapify" as const,
+    providerPlaceId: requestedPlaceId,
     label,
     latitude,
     longitude,
   };
 }
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse,
-) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("Cache-Control", "no-store");
-
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     return res.status(405).json({ error: "Leidžiamos tik GET užklausos." });
@@ -105,74 +74,48 @@ export default async function handler(
 
   const placeId = getQueryValue(req.query.placeId).trim();
   const sessionToken = getQueryValue(req.query.sessionToken).trim();
-
-  if (!isValidMapboxId(placeId) || !isValidSessionToken(sessionToken)) {
+  if (!isValidGeoapifyId(placeId) || !isValidSessionToken(sessionToken)) {
     return res.status(400).json({ error: "Neteisingai pasirinktas adresas." });
   }
 
-  const rateLimit = consumeRateLimit(
-    req.headers,
-    req.socket?.remoteAddress,
-    "place-details",
-    30,
-  );
+  const rateLimit = consumeRateLimit(req.headers, req.socket?.remoteAddress, "place-details", 30);
   res.setHeader("RateLimit-Limit", String(rateLimit.limit));
   res.setHeader("RateLimit-Remaining", String(rateLimit.remaining));
   res.setHeader("RateLimit-Reset", String(Math.ceil(rateLimit.resetAt / 1000)));
-
   if (!rateLimit.allowed) {
-    res.setHeader(
-      "Retry-After",
-      String(Math.max(1, Math.ceil((rateLimit.resetAt - Date.now()) / 1000))),
-    );
-    return res.status(429).json({
-      error: "Per daug adreso tikslinimo užklausų. Palaukite minutę.",
-    });
+    res.setHeader("Retry-After", String(Math.max(1, Math.ceil((rateLimit.resetAt - Date.now()) / 1000))));
+    return res.status(429).json({ error: "Per daug adreso tikslinimo užklausų. Palaukite minutę." });
   }
 
-  const accessToken = getMapboxServerToken();
-  if (!accessToken) {
-    return res.status(503).json({
-      error: "Adresų paieška laikinai nesukonfigūruota. Susisiekite su mumis.",
-    });
+  const apiKey = getGeoapifyServerKey();
+  if (!apiKey) {
+    return res.status(503).json({ error: "Adresų paieška laikinai nesukonfigūruota. Susisiekite su mumis." });
   }
 
-  const url = new URL(
-    `https://api.mapbox.com/search/searchbox/v1/retrieve/${encodeURIComponent(placeId)}`,
-  );
-  url.searchParams.set("session_token", sessionToken);
-  url.searchParams.set("access_token", accessToken);
-  url.searchParams.set("language", normalizeLanguage(getQueryValue(req.query.language)));
+  const url = new URL("https://api.geoapify.com/v2/place-details");
+  url.searchParams.set("id", placeId);
+  url.searchParams.set("features", "details");
+  url.searchParams.set("lang", normalizeLanguage(getQueryValue(req.query.language)));
+  url.searchParams.set("apiKey", apiKey);
 
   try {
-    const data = await fetchMapboxJson<MapboxRetrieveResponse>(url.toString());
-    const place = mapPlaceDetails(data);
-
-    if (!place || place.providerPlaceId !== placeId) {
-      return res.status(502).json({
-        error: "Pasirinkto adreso koordinatės negautos. Pasirinkite kitą rezultatą.",
-      });
+    const data = await fetchGeoapifyJson<GeoapifyDetailsResponse>(url.toString());
+    const place = mapPlaceDetails(data, placeId);
+    if (!place) {
+      return res.status(502).json({ error: "Pasirinkto adreso koordinatės negautos. Pasirinkite kitą rezultatą." });
     }
 
     const placeToken = createVerifiedPlaceToken(place);
     if (!placeToken) {
-      return res.status(503).json({
-        error: "Adreso patvirtinimas laikinai nepasiekiamas. Bandykite dar kartą.",
-      });
+      return res.status(503).json({ error: "Adreso patvirtinimas laikinai nepasiekiamas. Bandykite dar kartą." });
     }
-
     return res.status(200).json({ ...place, placeToken });
   } catch (error) {
-    console.error("Mapbox Search retrieve klaida", {
-      status: error instanceof MapboxUpstreamError ? error.status : "unknown",
-      detail:
-        error instanceof MapboxUpstreamError ? error.detail.slice(0, 500) : "",
+    console.error("Geoapify Place Details klaida", {
+      status: error instanceof GeoapifyUpstreamError ? error.status : "unknown",
+      detail: error instanceof GeoapifyUpstreamError ? error.detail.slice(0, 500) : "",
     });
-
-    return res.status(
-      error instanceof MapboxUpstreamError && error.status === 504 ? 504 : 502,
-    ).json({
-      error: "Nepavyko patvirtinti pasirinkto adreso. Bandykite dar kartą.",
-    });
+    return res.status(error instanceof GeoapifyUpstreamError && error.status === 504 ? 504 : 502)
+      .json({ error: "Nepavyko patvirtinti pasirinkto adreso. Bandykite dar kartą." });
   }
 }

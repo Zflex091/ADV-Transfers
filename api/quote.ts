@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import { consumeRateLimit } from "./_mapbox.js";
+import { consumeRateLimit } from "./_geoapify.js";
 import { getVehicleQuotes, QuoteRequestError } from "./_quote.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Stripe from "stripe";
 
-import { consumeRateLimit } from "./_mapbox.js";
+import { consumeRateLimit } from "./_geoapify.js";
 import { CheckoutRequestError, prepareCheckoutRequest } from "./_checkout-data.js";
 import {
   OrderConflictError,

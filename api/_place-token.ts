@@ -1,12 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { isCoordinate, isValidMapboxId } from "./_mapbox.js";
+import { isCoordinate, isValidGeoapifyId } from "./_geoapify.js";
 
 /** A place selection may outlive a refreshed route, but not an abandoned tab. */
 export const PLACE_TOKEN_TTL_MS = 2 * 60 * 60_000;
 
 export type VerifiedPlace = Readonly<{
-  provider: "mapbox" | "google";
+  provider: "geoapify" | "mapbox" | "google";
   providerPlaceId: string;
   label: string;
   latitude: number;
@@ -32,7 +32,7 @@ function signingKey(): Buffer | null {
 
 function isValidProviderPlaceId(provider: unknown, providerPlaceId: unknown) {
   if (typeof providerPlaceId !== "string") return false;
-  if (provider === "mapbox") return isValidMapboxId(providerPlaceId);
+  if (provider === "geoapify" || provider === "mapbox") return isValidGeoapifyId(providerPlaceId);
   return provider === "google" && /^[A-Za-z0-9_-]{5,255}$/.test(providerPlaceId);
 }
 
@@ -40,7 +40,7 @@ function isVerifiedPlace(value: unknown): value is VerifiedPlace {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const place = value as Record<string, unknown>;
   return (
-    (place.provider === "mapbox" || place.provider === "google") &&
+    (place.provider === "geoapify" || place.provider === "mapbox" || place.provider === "google") &&
     isValidProviderPlaceId(place.provider, place.providerPlaceId) &&
     typeof place.label === "string" &&
     place.label.trim() === place.label &&

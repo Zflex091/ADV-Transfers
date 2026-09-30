@@ -1,26 +1,22 @@
-export const MAPBOX_REQUEST_TIMEOUT_MS = 10_000;
+export const GEOAPIFY_REQUEST_TIMEOUT_MS = 10_000;
 
 type RateLimitEntry = { count: number; resetAt: number };
 const rateLimitBuckets = new Map<string, RateLimitEntry>();
 
-export class MapboxUpstreamError extends Error {
+export class GeoapifyUpstreamError extends Error {
   public readonly status: number;
   public readonly detail: string;
 
-  constructor(
-    status: number,
-    message = "Mapbox užklausa nepavyko.",
-    detail = "",
-  ) {
+  constructor(status: number, message = "Geoapify užklausa nepavyko.", detail = "") {
     super(message);
     this.status = status;
     this.detail = detail;
-    this.name = "MapboxUpstreamError";
+    this.name = "GeoapifyUpstreamError";
   }
 }
 
-export function getMapboxServerToken() {
-  return process.env.MAPBOX_ACCESS_TOKEN?.trim() ?? "";
+export function getGeoapifyServerKey() {
+  return process.env.GEOAPIFY_API_KEY?.trim() ?? "";
 }
 
 export function getQueryValue(value: string | string[] | undefined) {
@@ -35,25 +31,12 @@ export function isValidSessionToken(value: string) {
   return /^[A-Za-z0-9_-]{1,64}$/.test(value);
 }
 
-export function isValidMapboxId(value: string) {
-  return (
-    value.length > 0 &&
-    value.length <= 512 &&
-    !/[\u0000-\u001F\u007F\s]/.test(value)
-  );
+export function isValidGeoapifyId(value: string) {
+  return value.length > 0 && value.length <= 512 && !/[\u0000-\u001F\u007F\s]/.test(value);
 }
 
-export function isCoordinate(
-  value: unknown,
-  minimum: number,
-  maximum: number,
-): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isFinite(value) &&
-    value >= minimum &&
-    value <= maximum
-  );
+export function isCoordinate(value: unknown, minimum: number, maximum: number): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum;
 }
 
 export function consumeRateLimit(
@@ -65,24 +48,20 @@ export function consumeRateLimit(
 ) {
   const forwarded = headers["x-forwarded-for"];
   const forwardedValue = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-  const clientAddress =
-    forwardedValue?.split(",")[0]?.trim() || remoteAddress || "unknown";
+  const clientAddress = forwardedValue?.split(",")[0]?.trim() || remoteAddress || "unknown";
   const key = `${namespace}:${clientAddress}`;
   const current = rateLimitBuckets.get(key);
   const windowMs = 60_000;
-  const entry =
-    !current || current.resetAt <= now
-      ? { count: 0, resetAt: now + windowMs }
-      : current;
+  const entry = !current || current.resetAt <= now
+    ? { count: 0, resetAt: now + windowMs }
+    : current;
 
   entry.count += 1;
   rateLimitBuckets.set(key, entry);
 
   if (rateLimitBuckets.size > 5_000) {
     for (const [bucketKey, bucket] of rateLimitBuckets) {
-      if (bucket.resetAt <= now) {
-        rateLimitBuckets.delete(bucketKey);
-      }
+      if (bucket.resetAt <= now) rateLimitBuckets.delete(bucketKey);
     }
   }
 
@@ -94,50 +73,37 @@ export function consumeRateLimit(
   };
 }
 
-export async function fetchMapboxJson<T>(
+export async function fetchGeoapifyJson<T>(
   url: string,
   init: RequestInit = {},
+  timeoutMs = GEOAPIFY_REQUEST_TIMEOUT_MS,
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    MAPBOX_REQUEST_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       ...init,
       signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        ...init.headers,
-      },
+      headers: { Accept: "application/json", ...init.headers },
     });
 
     if (!response.ok) {
       const detail = (await response.text().catch(() => "")).slice(0, 1_000);
-      throw new MapboxUpstreamError(response.status, undefined, detail);
+      throw new GeoapifyUpstreamError(response.status, undefined, detail);
     }
 
-    const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.toLowerCase().includes("json")) {
-      throw new MapboxUpstreamError(
-        502,
-        "Mapbox grąžino netinkamą atsakymą.",
-      );
+    if (!(response.headers.get("content-type") ?? "").toLowerCase().includes("json")) {
+      throw new GeoapifyUpstreamError(502, "Geoapify grąžino netinkamą atsakymą.");
     }
 
     return (await response.json()) as T;
   } catch (error) {
-    if (error instanceof MapboxUpstreamError) {
-      throw error;
-    }
-
+    if (error instanceof GeoapifyUpstreamError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
-      throw new MapboxUpstreamError(504, "Mapbox neatsakė laiku.");
+      throw new GeoapifyUpstreamError(504, "Geoapify neatsakė laiku.");
     }
-
-    throw new MapboxUpstreamError(502);
+    throw new GeoapifyUpstreamError(502);
   } finally {
     clearTimeout(timeout);
   }

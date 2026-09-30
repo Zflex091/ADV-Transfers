@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { isCoordinate } from "./_mapbox.js";
+import { isCoordinate } from "./_geoapify.js";
 
 export const ROUTE_TOKEN_TTL_MS = 30 * 60_000;
 

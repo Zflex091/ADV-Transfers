@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && tsc -p tsconfig.api.json && vite build",
     "test:domain": "node --experimental-strip-types --test tests/booking.test.ts",
-    "test:maps": "node --experimental-strip-types --test tests/maps.test.ts",
+    "test:maps": "node --experimental-strip-types --experimental-loader ./tests/ts-loader.mjs --test tests/maps.test.ts",
     "test:quote": "node --experimental-strip-types --test tests/quote.test.ts",
     "test:schedule": "node --experimental-strip-types --test tests/schedule.test.ts",
     "test:checkout": "node --experimental-strip-types --test tests/checkout-data.test.ts tests/checkout-event.test.ts && node --experimental-strip-types --experimental-test-module-mocks --test tests/orders.test.ts",
