@@ -1186,10 +1186,6 @@ export default function App() {
               <Phone aria-hidden="true" />
               <span>{CONTACT_PHONE}</span>
             </a>
-            <a className="header-book-link" href="#booking">
-              {language === "lt" ? "Rezervuoti kelionę" : "Book a Taxi"}
-              <ArrowRight aria-hidden="true" />
-            </a>
           </div>
         </div>
       </header>
@@ -1899,39 +1895,6 @@ export default function App() {
             <span className="home-benefit-icon"><CreditCard aria-hidden="true" /></span>
             <div><h2>{language === "lt" ? "Aiški kelionės kaina" : "A clear fare"}</h2><p>{language === "lt" ? "Kainą matysite prieš patvirtindami rezervaciją." : "See your fare before confirming the reservation."}</p></div>
           </div>
-        </section>
-      )}
-
-      {step === 1 && !done && (
-        <section className="home-support-strip" aria-label={language === "lt" ? "Pagalba ir kontaktai" : "Help and contact"}>
-          <div className="home-support-intro">
-            <strong>{language === "lt" ? "Reikia pagalbos?" : "Need help?"}</strong>
-            <span>{language === "lt" ? "Atsakome greitai." : "We reply quickly."}</span>
-          </div>
-
-          <a className="home-support-item" href={`tel:${CONTACT_PHONE_LINK}`}>
-            <span className="home-support-icon"><Phone aria-hidden="true" /></span>
-            <span className="home-support-copy">
-              <small>{language === "lt" ? "Skambinkite" : "Call us"}</small>
-              <strong>{CONTACT_PHONE}</strong>
-            </span>
-          </a>
-
-          <a className="home-support-item" href={`mailto:${CONTACT_EMAIL}`}>
-            <span className="home-support-icon"><Mail aria-hidden="true" /></span>
-            <span className="home-support-copy">
-              <small>{language === "lt" ? "El. paštas" : "Email us"}</small>
-              <strong>{CONTACT_EMAIL}</strong>
-            </span>
-          </a>
-
-          <a className="home-support-item" href={WHATSAPP_LINK} target="_blank" rel="noopener noreferrer">
-            <span className="home-support-icon"><MessageCircle aria-hidden="true" /></span>
-            <span className="home-support-copy">
-              <small>WhatsApp</small>
-              <strong>{language === "lt" ? "Rašykite mums" : "Chat with us"}</strong>
-            </span>
-          </a>
         </section>
       )}
 
