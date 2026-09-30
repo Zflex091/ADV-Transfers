@@ -18,6 +18,8 @@ import {
   ChevronLeft,
   Clock3,
   CreditCard,
+  Fuel,
+  Leaf,
   LoaderCircle,
   LockKeyhole,
   Phone,
@@ -30,6 +32,7 @@ import {
   MessageSquareText,
   Baby,
   VolumeX,
+  ShieldCheck,
 } from "lucide-react";
 
 import PlaceField from "./components/PlaceField";
@@ -185,7 +188,7 @@ const translations = {
     heroTitleFirst: "Oro uosto pervežimai,",
     heroTitleSecond: "be streso.",
     heroDescription:
-      "Privatūs pervežimai iš Kauno oro uosto visoje Lietuvoje.",
+      "Patogios kelionės į Kauno oro uostą ir iš jo. Atsinaujinantis kuras, aiški kaina ir profesionalūs vairuotojai – jums belieka mėgautis kelione.",
     bookJourney: "Rezervuoti kelionę",
     callNow: "Skambinti",
     howItWorks: "Kaip veikia",
@@ -196,9 +199,9 @@ const translations = {
     airportCityPrice:
       "Kauno oro uostas → miesto centras / senamiestis: 35–40 €",
 
-    whereGoing: "Rezervuokite kelionę",
+    whereGoing: "Kauno oro uosto taksi",
     routeDescription:
-      "Pasirinkite maršrutą ir paėmimo laiką.",
+      "Greita. Patikima. Atsakinga aplinkai.",
 
     pickup: "Iš kur",
     pickupPlaceholder: "Adresas, oro uostas ar vieta",
@@ -221,7 +224,7 @@ const translations = {
     routeError: "Maršruto apskaičiuoti nepavyko.",
 
     calculating: "Skaičiuojama...",
-    calculatePrice: "Ieškoti automobilių",
+    calculatePrice: "Rasti automobilį",
 
     changeRoute: "Keisti maršrutą",
     yourContacts: "Jūsų kontaktai",
@@ -297,7 +300,7 @@ const translations = {
     heroTitleFirst: "Airport transfers,",
     heroTitleSecond: "without the stress.",
     heroDescription:
-      "Private rides from Kaunas Airport across Lithuania.",
+      "Reliable and comfortable transfers to and from Kaunas Airport. Renewable fuel, clear prices and professional drivers – so you can relax and enjoy the journey.",
     bookJourney: "Book your transfer",
     callNow: "Call us",
     howItWorks: "How it works",
@@ -308,9 +311,9 @@ const translations = {
     airportCityPrice:
       "Kaunas Airport → city centre / old town: €35–40",
 
-    whereGoing: "Book transfer",
+    whereGoing: "Kaunas Airport Taxi",
     routeDescription:
-      "Choose your route and pickup time.",
+      "Fast. Reliable. Eco-conscious.",
 
     pickup: "Pickup location",
     pickupPlaceholder: "Address, airport or place",
@@ -333,7 +336,7 @@ const translations = {
     routeError: "The route could not be calculated.",
 
     calculating: "Calculating...",
-    calculatePrice: "Search vehicles",
+    calculatePrice: "Find My Taxi",
 
     changeRoute: "Change route",
     yourContacts: "Your contact details",
@@ -1170,7 +1173,7 @@ export default function App() {
         <div className="site-header-inner">
           <a className="brand" href="#top" aria-label="ADV Services">
             <img src="/adv-logo.svg" alt="" />
-            <span className="brand-wordmark"><b>ADV</b><small>SERVICES</small></span>
+            <span className="brand-wordmark"><b>ADV</b><small>Services</small></span>
           </a>
 
           <div className="header-actions">
@@ -1183,6 +1186,10 @@ export default function App() {
               <Phone aria-hidden="true" />
               <span>{CONTACT_PHONE}</span>
             </a>
+            <a className="header-book-link" href="#booking">
+              {language === "lt" ? "Rezervuoti kelionę" : "Book a Taxi"}
+              <ArrowRight aria-hidden="true" />
+            </a>
           </div>
         </div>
       </header>
@@ -1194,14 +1201,15 @@ export default function App() {
         </>)}
         {step === 1 && !done && (
           <section id="services" className="hero-copy">
-            <div className="eyebrow">{language === "lt" ? "Privatūs oro uosto pervežimai" : "Private airport transfers"}</div>
+            <div className="eyebrow"><Leaf aria-hidden="true" />{language === "lt" ? "Kauno oro uosto pervežimai" : "Kaunas Airport Transfers"}</div>
             <h1>{t.heroTitleFirst}<br /><em>{t.heroTitleSecond}</em></h1>
             <p>{t.heroDescription}</p>
 
             <div className="hero-trust" aria-label={language === "lt" ? "Paslaugos privalumai" : "Service benefits"}>
-              <span><Clock3 aria-hidden="true" />24/7</span>
-              <span><LockKeyhole aria-hidden="true" />{language === "lt" ? "Fiksuota kaina" : "Fixed price"}</span>
-              <span><CarFront aria-hidden="true" />{language === "lt" ? "Profesionalūs vairuotojai" : "Professional drivers"}</span>
+              <span><Leaf aria-hidden="true" />{language === "lt" ? "Aplinkai atsakingos kelionės" : "Eco-conscious rides"}</span>
+              <span><Fuel aria-hidden="true" />{language === "lt" ? "Atsinaujinantis kuras" : "Renewable fuel"}</span>
+              <span><CarFront aria-hidden="true" />{language === "lt" ? "Šiuolaikiški automobiliai" : "Modern vehicles"}</span>
+              <span><CreditCard aria-hidden="true" />{language === "lt" ? "Mokėkite internetu arba automobilyje" : "Pay online or in the vehicle"}</span>
             </div>
 
             <div className="hero-payment-note" aria-label={language === "lt" ? "Atsiskaitymo būdai" : "Payment options"}>
@@ -1321,7 +1329,7 @@ export default function App() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
               >
-                <span className="booking-kicker">{t.route}</span>
+                <span className="booking-kicker">{language === "lt" ? "REZERVUOKITE KELIONĘ" : "BOOK YOUR RIDE"}</span>
                 <div className="card-heading">
                   <span>01</span>
 
@@ -1872,6 +1880,27 @@ export default function App() {
         </motion.section>
         </div>
       </main>
+
+      {step === 1 && !done && (
+        <section className="home-benefits" aria-label={language === "lt" ? "Kodėl rinktis ADV Services" : "Why choose ADV Services"}>
+          <div className="home-benefit">
+            <span className="home-benefit-icon"><Leaf aria-hidden="true" /></span>
+            <div><h2>{language === "lt" ? "Švaresnės kelionės" : "Cleaner journeys"}</h2><p>{language === "lt" ? "Atsinaujinantis kuras ir atsakingi transporto pasirinkimai." : "Renewable fuel and thoughtful vehicle choices."}</p></div>
+          </div>
+          <div className="home-benefit">
+            <span className="home-benefit-icon"><Clock3 aria-hidden="true" /></span>
+            <div><h2>{language === "lt" ? "Patikima ir laiku" : "Reliable & on time"}</h2><p>{language === "lt" ? "Kelionę planuojame pagal jūsų pasirinktą paėmimo laiką." : "Your journey is planned around your chosen pickup time."}</p></div>
+          </div>
+          <div className="home-benefit">
+            <span className="home-benefit-icon"><ShieldCheck aria-hidden="true" /></span>
+            <div><h2>{language === "lt" ? "Profesionalūs vairuotojai" : "Professional drivers"}</h2><p>{language === "lt" ? "Dėmesingas aptarnavimas nuo pradžios iki kelionės pabaigos." : "Attentive service from pickup to drop-off."}</p></div>
+          </div>
+          <div className="home-benefit">
+            <span className="home-benefit-icon"><CreditCard aria-hidden="true" /></span>
+            <div><h2>{language === "lt" ? "Aiški kelionės kaina" : "A clear fare"}</h2><p>{language === "lt" ? "Kainą matysite prieš patvirtindami rezervaciją." : "See your fare before confirming the reservation."}</p></div>
+          </div>
+        </section>
+      )}
 
       {step === 1 && !done && (
         <section className="home-support-strip" aria-label={language === "lt" ? "Pagalba ir kontaktai" : "Help and contact"}>
